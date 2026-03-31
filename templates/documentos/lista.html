@@ -1,0 +1,78 @@
+{% extends 'base.html' %}
+{% block title %}Documentos — LABSAF{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <div class="page-title">Documentos PDF</div>
+    <div class="page-sub">PDFs para inducción, código de ética, gestión y entrenamiento técnico</div>
+  </div>
+  <a href="{% url 'documentos:subir' %}" class="btn btn-primary">+ Subir documento</a>
+</div>
+
+<div class="flex gap-10 mb-16">
+  <div class="search" style="flex:1">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--txt3)" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+    <input type="text" placeholder="Buscar documento..." id="q" oninput="filtrar()">
+  </div>
+  <select class="fc" style="width:150px" id="filtro-tipo" onchange="filtrar()">
+    <option value="">Todos los tipos</option>
+    <option value="induccion">Inducción</option>
+    <option value="etica">Código de ética</option>
+    <option value="gestion">Gestión</option>
+    <option value="tecnico">Técnico</option>
+  </select>
+</div>
+
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr><th>Título</th><th>Tipo</th><th>Obligatorio</th><th>Fecha</th><th>Estado</th><th>Acciones</th></tr>
+    </thead>
+    <tbody id="tbody">
+      {% for doc in documentos %}
+      <tr data-titulo="{{ doc.titulo|lower }}" data-tipo="{{ doc.tipo }}">
+        <td>
+          <div class="td-name">{{ doc.titulo }}</div>
+          {% if doc.descripcion %}<div class="td-sub">{{ doc.descripcion|truncatechars:60 }}</div>{% endif %}
+        </td>
+        <td>
+          {% if doc.tipo == 'etica' %}<span class="badge b-morado">Código de ética</span>
+          {% elif doc.tipo == 'induccion' %}<span class="badge b-azul">Inducción</span>
+          {% elif doc.tipo == 'gestion' %}<span class="badge b-verde">Gestión</span>
+          {% elif doc.tipo == 'tecnico' %}<span class="badge b-amarillo">Técnico</span>
+          {% else %}<span class="badge b-gris">{{ doc.get_tipo_display }}</span>{% endif %}
+        </td>
+        <td>{% if doc.obligatorio %}<span class="badge b-rojo">Sí</span>{% else %}<span class="badge b-gris">No</span>{% endif %}</td>
+        <td class="text-muted font-mono" style="font-size:11px">{{ doc.fecha_subida|date:"d/m/Y" }}</td>
+        <td>{% if doc.activo %}<span class="badge b-verde">Activo</span>{% else %}<span class="badge b-gris">Inactivo</span>{% endif %}</td>
+        <td>
+          <div class="flex gap-6">
+            <a href="{{ doc.archivo.url }}" target="_blank" class="btn btn-ghost btn-sm">Ver PDF</a>
+            <a href="{% url 'documentos:editar' doc.pk %}" class="btn btn-ghost btn-sm">Editar</a>
+            <a href="{% url 'documentos:eliminar' doc.pk %}" class="btn btn-danger btn-sm"
+               onclick="return confirm('¿Eliminar {{ doc.titulo }}?')">Eliminar</a>
+          </div>
+        </td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="6" class="td-empty">
+        No hay documentos. <a href="{% url 'documentos:subir' %}" class="text-verde">Sube el primero →</a>
+      </td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}
+{% block extra_js %}
+<script>
+function filtrar() {
+  const q    = document.getElementById('q').value.toLowerCase();
+  const tipo = document.getElementById('filtro-tipo').value;
+  document.querySelectorAll('#tbody tr').forEach(tr => {
+    const mQ = !q    || tr.dataset.titulo?.includes(q);
+    const mT = !tipo || tr.dataset.tipo === tipo;
+    tr.style.display = mQ && mT ? '' : 'none';
+  });
+}
+</script>
+{% endblock %}

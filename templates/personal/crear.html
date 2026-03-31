@@ -1,0 +1,313 @@
+{% extends 'base.html' %}
+{% block title %}{{ titulo }} — LABSAF{% endblock %}
+{% block extra_css %}
+<style>
+.max-700 { max-width: 700px; }
+.wizard-card { background: var(--bg2); border: 1px solid var(--borde); border-radius: var(--r3); overflow: hidden; }
+.wizard-header { background: linear-gradient(135deg, #0a1628, #0f2040); padding: 20px 24px; border-bottom: 1px solid var(--borde); }
+.wizard-h-title { font-size: 16px; font-weight: 700; color: var(--txt); margin-bottom: 3px; }
+.wizard-h-sub   { font-size: 11px; color: var(--txt3); }
+.step-body { padding: 24px; }
+.step-actions { padding: 16px 24px; border-top: 1px solid var(--borde); background: var(--bg3); display: flex; justify-content: space-between; align-items: center; }
+</style>
+{% endblock %}
+{% block content %}
+<div class="max-700">
+  <div class="page-head">
+    <div>
+      <div class="page-title">{{ titulo }}</div>
+      <div class="page-sub">{% if editando %}Modifica los datos del trabajador{% else %}Completa los 3 pasos para registrar al nuevo personal{% endif %}</div>
+    </div>
+    <a href="{% url 'personal:lista' %}" class="btn btn-ghost">← Volver</a>
+  </div>
+
+  {% if form.non_field_errors %}
+    <div class="alert alert-error mb-16">{{ form.non_field_errors }}</div>
+  {% endif %}
+
+  <div class="wizard-card">
+    <!-- Header -->
+    <div class="wizard-header">
+      <div class="wizard-h-title">{% if editando %}Editar trabajador{% else %}Registrar nuevo trabajador{% endif %}</div>
+      <div class="wizard-h-sub">Sistema LABSAF · PRO-04 v10</div>
+    </div>
+
+    <!-- Steps indicator -->
+    {% if not editando %}
+    <div class="wizard-steps">
+      <div class="wstep {% if not editando %}active{% endif %}" id="ws1">
+        <div class="ws-num" id="wn1">1</div>
+        <span class="ws-label">Acceso</span>
+      </div>
+      <div class="wstep" id="ws2">
+        <div class="ws-num" id="wn2">2</div>
+        <span class="ws-label">Personal</span>
+      </div>
+      <div class="wstep" id="ws3">
+        <div class="ws-num" id="wn3">3</div>
+        <span class="ws-label">Laboral</span>
+      </div>
+    </div>
+    {% endif %}
+
+    <form method="post" id="main-form">
+      {% csrf_token %}
+
+      <!-- PASO 1: Acceso -->
+      {% if not editando %}
+      <div id="paso1">
+        <div class="step-body">
+          <div class="hint-box">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0;margin-top:1px"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            El trabajador usará estas credenciales para iniciar sesión y completar su proceso de inducción.
+          </div>
+
+          <div class="form-section">
+            <div class="fs-title">Credenciales de acceso</div>
+            <div class="grid3">
+              <div class="fg">
+                <label>Usuario <span class="req">*</span></label>
+                <input type="text" name="username" class="fc {% if form.username.errors %}err{% endif %}"
+                       placeholder="nombre.apellido" value="{{ form.username.value|default:'' }}" autocomplete="off">
+                {% if form.username.errors %}<div class="ferr">{{ form.username.errors.0 }}</div>{% endif %}
+                <div class="hint">Sin espacios. Ej: miriam.osorio</div>
+              </div>
+              <div class="fg">
+                <label>Contraseña <span class="req">*</span></label>
+                <input type="password" name="password" class="fc {% if form.password.errors %}err{% endif %}" placeholder="Mín. 6 caracteres">
+                {% if form.password.errors %}<div class="ferr">{{ form.password.errors.0 }}</div>{% endif %}
+              </div>
+              <div class="fg">
+                <label>Confirmar <span class="req">*</span></label>
+                <input type="password" name="password2" class="fc {% if form.password2.errors %}err{% endif %}" placeholder="Repite la contraseña">
+                {% if form.password2.errors %}<div class="ferr">{{ form.password2.errors.0 }}</div>{% endif %}
+              </div>
+            </div>
+          </div>
+
+          <div class="form-section">
+            <div class="fs-title">Rol en el sistema</div>
+            <div class="rol-grid">
+              <div class="rol-card sel" data-rol="personal" onclick="selRol(this)">
+                <div class="rol-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div>
+                <div class="rol-name">Personal</div>
+                <div class="rol-desc">Lee docs, rinde evaluaciones, firma D-03</div>
+              </div>
+              <div class="rol-card" data-rol="admin" onclick="selRol(this)">
+                <div class="rol-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4"/></svg></div>
+                <div class="rol-name">Administrador</div>
+                <div class="rol-desc">Acceso completo al sistema</div>
+              </div>
+            </div>
+            <input type="hidden" name="rol" id="rol-input" value="personal">
+          </div>
+        </div>
+        <div class="step-actions">
+          <span class="text-xs text-muted">Paso 1 de 3</span>
+          <button type="button" class="btn btn-primary" onclick="irPaso(2)">Siguiente →</button>
+        </div>
+      </div>
+      {% endif %}
+
+      <!-- PASO 2: Personal -->
+      <div id="paso2" {% if not editando %}style="display:none"{% endif %}>
+        <div class="step-body">
+          <div class="form-section">
+            <div class="fs-title">Datos personales</div>
+            <div class="grid2">
+              <div class="fg">
+                <label>Nombres <span class="req">*</span></label>
+                <input type="text" name="first_name" class="fc {% if form.first_name.errors %}err{% endif %}"
+                       placeholder="Ej: Miriam Keila" value="{{ form.first_name.value|default:'' }}">
+                {% if form.first_name.errors %}<div class="ferr">{{ form.first_name.errors.0 }}</div>{% endif %}
+              </div>
+              <div class="fg">
+                <label>Apellidos <span class="req">*</span></label>
+                <input type="text" name="last_name" class="fc {% if form.last_name.errors %}err{% endif %}"
+                       placeholder="Ej: Osorio Andia" value="{{ form.last_name.value|default:'' }}">
+                {% if form.last_name.errors %}<div class="ferr">{{ form.last_name.errors.0 }}</div>{% endif %}
+              </div>
+            </div>
+            <div class="grid3">
+              <div class="fg">
+                <label>DNI <span class="req">*</span></label>
+                <input type="text" name="dni" class="fc {% if form.dni.errors %}err{% endif %}"
+                       placeholder="12345678" maxlength="8"
+                       value="{{ form.dni.value|default:'' }}"
+                       oninput="this.value=this.value.replace(/\D/g,'')">
+                {% if form.dni.errors %}<div class="ferr">{{ form.dni.errors.0 }}</div>{% endif %}
+              </div>
+              <div class="fg">
+                <label>Teléfono</label>
+                <input type="text" name="telefono" class="fc" placeholder="987654321"
+                       value="{{ form.telefono.value|default:'' }}">
+              </div>
+              <div class="fg">
+                <label>Correo</label>
+                <input type="email" name="email" class="fc" placeholder="correo@labsaf.pe"
+                       value="{{ form.email.value|default:'' }}">
+              </div>
+            </div>
+          </div>
+          {% if editando %}
+          <div class="form-section">
+            <div class="fs-title">Cambiar contraseña (opcional)</div>
+            <div class="fg" style="max-width:300px">
+              <label>Nueva contraseña</label>
+              <input type="password" name="nueva_password" class="fc" placeholder="Dejar vacío para no cambiar">
+            </div>
+          </div>
+          {% endif %}
+        </div>
+        <div class="step-actions">
+          {% if not editando %}
+          <button type="button" class="btn btn-ghost" onclick="irPaso(1)">← Anterior</button>
+          <span class="text-xs text-muted">Paso 2 de 3</span>
+          <button type="button" class="btn btn-primary" onclick="irPaso(3)">Siguiente →</button>
+          {% else %}
+          <a href="{% url 'personal:lista' %}" class="btn btn-ghost">Cancelar</a>
+          <button type="submit" class="btn btn-primary">Continuar →</button>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- PASO 3: Laboral -->
+      <div id="paso3" {% if not editando %}style="display:none"{% endif %}>
+        <div class="step-body">
+          <div class="form-section">
+            <div class="fs-title">Datos laborales</div>
+            <div class="grid2">
+              <div class="fg">
+                <label>Cargo <span class="req">*</span></label>
+                <select name="cargo" class="fc {% if form.cargo.errors %}err{% endif %}" id="sel-cargo">
+                  <option value="">— Selecciona un cargo —</option>
+                  {% for c in form.cargo.field.queryset %}
+                    <option value="{{ c.pk }}" {% if form.cargo.value|stringformat:"s" == c.pk|stringformat:"s" %}selected{% endif %}>{{ c.nombre }}</option>
+                  {% endfor %}
+                </select>
+                {% if form.cargo.errors %}<div class="ferr">{{ form.cargo.errors.0 }}</div>{% endif %}
+                <div class="or-divider">o escribe uno nuevo</div>
+                <input type="text" name="cargo_nuevo" id="inp-cargo" class="fc"
+                       placeholder="Escribe el nombre del cargo"
+                       value="{{ form.cargo_nuevo.value|default:'' }}">
+              </div>
+              <div class="fg">
+                <label>Laboratorio / Área <span class="req">*</span></label>
+                <select name="area" class="fc {% if form.area.errors %}err{% endif %}" id="sel-area">
+                  <option value="">— Selecciona un área —</option>
+                  {% for a in form.area.field.queryset %}
+                    <option value="{{ a.pk }}" {% if form.area.value|stringformat:"s" == a.pk|stringformat:"s" %}selected{% endif %}>{{ a.nombre }}</option>
+                  {% endfor %}
+                </select>
+                {% if form.area.errors %}<div class="ferr">{{ form.area.errors.0 }}</div>{% endif %}
+                <div class="or-divider">o escribe una nueva</div>
+                <input type="text" name="area_nueva" id="inp-area" class="fc"
+                       placeholder="Escribe el nombre del área"
+                       value="{{ form.area_nueva.value|default:'' }}">
+              </div>
+            </div>
+            <div class="grid2">
+              <div class="fg">
+                <label>Fecha de ingreso <span class="req">*</span></label>
+                <input type="date" name="fecha_ingreso" class="fc {% if form.fecha_ingreso.errors %}err{% endif %}"
+                       value="{{ form.fecha_ingreso.value|date:'Y-m-d'|default:'' }}">
+                {% if form.fecha_ingreso.errors %}<div class="ferr">{{ form.fecha_ingreso.errors.0 }}</div>{% endif %}
+              </div>
+              <div class="fg">
+                <label>Estado</label>
+                <div class="estado-grid">
+                  <div class="est-card sel" data-est="proceso" onclick="selEst(this)">
+                    <div class="est-name">En proceso</div>
+                    <div class="est-desc">Inducción activa</div>
+                  </div>
+                  <div class="est-card" data-est="activo" onclick="selEst(this)">
+                    <div class="est-name">Activo</div>
+                    <div class="est-desc">Autorizado</div>
+                  </div>
+                  <div class="est-card" data-est="inactivo" onclick="selEst(this)">
+                    <div class="est-name">Inactivo</div>
+                    <div class="est-desc">Sin acceso</div>
+                  </div>
+                </div>
+                <input type="hidden" name="estado" id="estado-input" value="{{ form.estado.value|default:'proceso' }}">
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="step-actions">
+          {% if not editando %}
+          <button type="button" class="btn btn-ghost" onclick="irPaso(2)">← Anterior</button>
+          <span class="text-xs text-muted">Paso 3 de 3</span>
+          <button type="submit" class="btn btn-primary" id="btn-submit">Registrar trabajador</button>
+          {% else %}
+          <a href="{% url 'personal:lista' %}" class="btn btn-ghost">Cancelar</a>
+          <button type="submit" class="btn btn-primary">Guardar cambios</button>
+          {% endif %}
+        </div>
+      </div>
+
+    </form>
+  </div>
+</div>
+{% endblock %}
+{% block extra_js %}
+<script>
+function irPaso(n) {
+  [1,2,3].forEach(i => {
+    const p  = document.getElementById('paso'+i);
+    const ws = document.getElementById('ws'+i);
+    const wn = document.getElementById('wn'+i);
+    if (p)  p.style.display  = i===n ? 'block' : 'none';
+    if (ws) {
+      ws.classList.toggle('active', i===n);
+      ws.classList.toggle('done',   i<n);
+    }
+    if (wn && i < n) wn.innerHTML = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20,6 9,17 4,12"/></svg>';
+    else if (wn)     wn.textContent = i;
+  });
+}
+function selRol(el) {
+  document.querySelectorAll('.rol-card').forEach(c => c.classList.remove('sel'));
+  el.classList.add('sel');
+  document.getElementById('rol-input').value = el.dataset.rol;
+}
+function selEst(el) {
+  document.querySelectorAll('.est-card').forEach(c => c.classList.remove('sel'));
+  el.classList.add('sel');
+  document.getElementById('estado-input').value = el.dataset.est;
+}
+// Inicializar estado seleccionado
+const estadoActual = document.getElementById('estado-input').value;
+document.querySelectorAll('.est-card').forEach(c => {
+  if (c.dataset.est === estadoActual) c.classList.add('sel');
+  else c.classList.remove('sel');
+});
+// Cargo/Área: si se escribe en el input, limpiar el select y viceversa
+document.getElementById('inp-cargo')?.addEventListener('input', function() {
+  if (this.value.trim()) document.getElementById('sel-cargo').value = '';
+});
+document.getElementById('sel-cargo')?.addEventListener('change', function() {
+  if (this.value) document.getElementById('inp-cargo').value = '';
+});
+document.getElementById('inp-area')?.addEventListener('input', function() {
+  if (this.value.trim()) document.getElementById('sel-area').value = '';
+});
+document.getElementById('sel-area')?.addEventListener('change', function() {
+  if (this.value) document.getElementById('inp-area').value = '';
+});
+// Si hay errores del form, mostrar el paso correcto
+{% if form.errors %}
+  {% if form.username.errors or form.password.errors or form.password2.errors %}
+    irPaso(1);
+  {% elif form.first_name.errors or form.last_name.errors or form.dni.errors %}
+    irPaso(2);
+  {% else %}
+    irPaso(3);
+  {% endif %}
+{% endif %}
+// Animación botón submit
+document.getElementById('btn-submit')?.addEventListener('click', function() {
+  setTimeout(() => { if (!document.querySelector('.ferr')) { this.textContent = 'Registrando...'; this.disabled = true; } }, 50);
+});
+</script>
+{% endblock %}

@@ -1,0 +1,86 @@
+{% extends 'base.html' %}
+{% block title %}{{ evaluacion.titulo }} — LABSAF{% endblock %}
+{% block extra_css %}
+<style>
+.eval-wrap { max-width: 680px; }
+.timer-bar { height: 3px; background: var(--verde); border-radius: 2px; transition: width 1s linear; }
+.timer-bar.warn { background: var(--amarillo); }
+.timer-bar.danger { background: var(--rojo); }
+</style>
+{% endblock %}
+{% block content %}
+<div class="eval-wrap">
+  <div class="page-head">
+    <div>
+      <div class="page-title">{{ evaluacion.titulo }}</div>
+      <div class="page-sub">{{ evaluacion.get_tipo_display }} · Nota mínima: {{ evaluacion.nota_minima }} · {{ intentos_restantes }} intento(s) restante(s)</div>
+    </div>
+    <a href="{% url 'evaluaciones:mis_evaluaciones' %}" class="btn btn-ghost">← Volver</a>
+  </div>
+
+  {% if evaluacion.tiempo_limite %}
+  <div class="card mb-16">
+    <div class="card-body" style="padding:12px 16px">
+      <div class="flex items-center justify-between mb-8">
+        <span class="text-xs text-muted">Tiempo límite</span>
+        <span class="font-mono text-verde" id="timer-txt" style="font-size:15px;font-weight:600">{{ evaluacion.tiempo_limite }}:00</span>
+      </div>
+      <div style="background:var(--bg4);border-radius:2px;height:3px">
+        <div class="timer-bar" id="timer-bar" style="width:100%"></div>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  <form method="post" id="eval-form">
+    {% csrf_token %}
+    {% for field in form %}
+    <div class="pregunta-card">
+      <div class="preg-num">Pregunta {{ forloop.counter }} de {{ form|length }}</div>
+      <div class="preg-txt">{{ field.label }}</div>
+      {% for radio in field %}
+      <div class="opcion-wrap">
+        <input type="radio" name="{{ field.html_name }}" id="{{ radio.id_for_label }}" value="{{ radio.data.value }}" required>
+        <label class="opcion-label" for="{{ radio.id_for_label }}">
+          <div class="opcion-dot"></div>
+          {{ radio.choice_label }}
+        </label>
+      </div>
+      {% endfor %}
+      {% if field.errors %}<div class="alert alert-error mt-8" style="margin-top:8px">{{ field.errors }}</div>{% endif %}
+    </div>
+    {% endfor %}
+
+    <div class="card">
+      <div class="card-body flex items-center justify-between flex-wrap gap-12">
+        <div class="text-xs text-muted">Responde todas las preguntas. Una vez enviado no podrás cambiar tus respuestas.</div>
+        <button type="submit" class="btn btn-primary btn-lg" id="btn-enviar">Enviar evaluación →</button>
+      </div>
+    </div>
+  </form>
+</div>
+
+{% block extra_js %}
+<script>
+{% if evaluacion.tiempo_limite %}
+let secsLeft = {{ evaluacion.tiempo_limite }} * 60;
+const total  = secsLeft;
+const txt    = document.getElementById('timer-txt');
+const bar    = document.getElementById('timer-bar');
+const iv = setInterval(() => {
+  secsLeft--;
+  const m = Math.floor(secsLeft/60), s = secsLeft%60;
+  txt.textContent = `${m}:${String(s).padStart(2,'0')}`;
+  const pct = (secsLeft/total) * 100;
+  bar.style.width = pct + '%';
+  if (pct < 25) { bar.className = 'timer-bar danger'; txt.style.color = 'var(--rojo)'; }
+  else if (pct < 50) { bar.className = 'timer-bar warn'; txt.style.color = 'var(--amarillo)'; }
+  if (secsLeft <= 0) { clearInterval(iv); document.getElementById('eval-form').submit(); }
+}, 1000);
+{% endif %}
+document.getElementById('btn-enviar').addEventListener('click', function() {
+  setTimeout(() => { this.textContent = 'Enviando...'; this.disabled = true; }, 100);
+});
+</script>
+{% endblock %}
+{% endblock %}

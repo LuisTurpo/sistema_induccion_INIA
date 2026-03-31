@@ -1,0 +1,102 @@
+{% extends 'base.html' %}
+{% block title %}Preguntas — {{ evaluacion.titulo }}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <div class="page-title">{{ evaluacion.titulo }}</div>
+    <div class="page-sub">Agregar preguntas · {{ evaluacion.preguntas.count }} pregunta(s) creada(s)</div>
+  </div>
+  <a href="{% url 'evaluaciones:lista' %}" class="btn btn-ghost">← Volver</a>
+</div>
+
+<div class="grid2" style="align-items:flex-start;gap:20px">
+
+  <!-- Formulario nueva pregunta -->
+  <div class="card">
+    <div class="card-head"><span class="card-title">Nueva pregunta</span></div>
+    <div class="card-body">
+      <form method="post">
+        {% csrf_token %}
+        <div class="fg">
+          <label>Enunciado <span class="req">*</span></label>
+          <textarea name="enunciado" class="fc" rows="3" placeholder="Escribe la pregunta aquí..." required></textarea>
+        </div>
+        <div class="grid2">
+          <div class="fg">
+            <label>Orden</label>
+            <input type="number" name="orden" class="fc" value="{{ evaluacion.preguntas.count|add:1 }}" min="1">
+          </div>
+          <div class="fg">
+            <label>Puntaje</label>
+            <input type="number" name="puntaje" class="fc" value="1" min="0.1" step="0.1">
+          </div>
+        </div>
+
+        <div style="border-top:1px solid var(--borde);padding-top:14px;margin-top:4px">
+          <div class="fs-title">Opciones de respuesta</div>
+          <div class="text-xs text-muted" style="margin-bottom:12px">El círculo seleccionado indica la respuesta correcta.</div>
+          {% for i in "0123" %}
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+            <input type="radio" name="correcta_idx" value="{{ i }}"
+                   {% if forloop.first %}checked{% endif %}
+                   style="accent-color:var(--verde);flex-shrink:0;width:16px;height:16px">
+            <input type="text" name="op{{ i }}-texto" class="fc"
+                   placeholder="Opción {{ forloop.counter }}" required style="margin-bottom:0">
+          </div>
+          {% endfor %}
+        </div>
+
+        <div style="margin-top:14px">
+          <button type="submit" class="btn btn-primary w-full" style="width:100%">+ Agregar pregunta</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Lista de preguntas existentes -->
+  <div class="card">
+    <div class="card-head">
+      <span class="card-title">Preguntas creadas</span>
+      <span class="badge b-azul">{{ evaluacion.preguntas.count }}</span>
+    </div>
+    <div style="max-height:600px;overflow-y:auto">
+      {% for p in evaluacion.preguntas.all %}
+      <div style="padding:14px 16px;border-bottom:1px solid var(--borde)">
+        <div class="flex justify-between items-center" style="margin-bottom:8px">
+          <span class="text-xs font-600 text-verde" style="text-transform:uppercase;letter-spacing:.06em">Pregunta {{ p.orden }}</span>
+          <a href="{% url 'evaluaciones:eliminar_pregunta' p.pk %}"
+             onclick="return confirm('¿Eliminar esta pregunta?')"
+             class="btn btn-danger btn-sm">Eliminar</a>
+        </div>
+        <p class="text-sm font-600" style="margin-bottom:10px;color:var(--txt)">{{ p.enunciado }}</p>
+        <div style="display:flex;flex-direction:column;gap:5px">
+          {% for op in p.opciones.all %}
+          <div style="display:flex;align-items:center;gap:8px;padding:6px 10px;border-radius:var(--r);
+                      background:{% if op.es_correcta %}var(--vglow){% else %}var(--bg3){% endif %};
+                      border:1px solid {% if op.es_correcta %}rgba(34,197,94,.3){% else %}var(--borde){% endif %}">
+            <span style="font-size:12px;color:{% if op.es_correcta %}var(--verde){% else %}var(--txt3){% endif %}">
+              {% if op.es_correcta %}✓{% else %}○{% endif %}
+            </span>
+            <span class="text-sm" style="color:{% if op.es_correcta %}var(--txt){% else %}var(--txt2){% endif %}">{{ op.texto }}</span>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+      {% empty %}
+      <div style="padding:32px;text-align:center;color:var(--txt3);font-size:13px">
+        Aún no hay preguntas. Agrega la primera desde el formulario.
+      </div>
+      {% endfor %}
+    </div>
+    {% if evaluacion.preguntas.count > 0 %}
+    <div class="card-foot">
+      <div class="flex justify-between items-center">
+        <span class="text-xs text-muted">{{ evaluacion.preguntas.count }} preguntas · Nota mín. {{ evaluacion.nota_minima }}</span>
+        <span class="badge b-verde">Lista para aplicar</span>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+
+</div>
+{% endblock %}

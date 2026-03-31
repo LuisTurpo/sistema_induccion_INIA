@@ -1,0 +1,99 @@
+{% extends 'base.html' %}
+{% block title %}Iniciar sesión — LABSAF · INIA{% endblock %}
+{% block extra_css %}
+<style>
+body {
+  display: flex; align-items: center; justify-content: center;
+  min-height: 100vh;
+  background: linear-gradient(135deg, #1a521a 0%, #2d7a2d 50%, #3d9e3d 100%);
+}
+.login-page { width: 100%; max-width: 400px; padding: 20px; }
+.login-logo { text-align: center; margin-bottom: 28px; }
+.login-mark {
+  width: 64px; height: 64px;
+  background: #fff;
+  border-radius: 16px;
+  display: flex; align-items: center; justify-content: center;
+  margin: 0 auto 14px;
+  box-shadow: 0 4px 20px rgba(0,0,0,.2);
+}
+.login-mark svg { width: 32px; height: 32px; }
+.login-title { font-size: 24px; font-weight: 700; letter-spacing: -.02em; color: #fff; margin-bottom: 4px; }
+.login-sub { font-size: 12px; color: rgba(255,255,255,.7); line-height: 1.5; }
+.login-card {
+  background: #fff;
+  border-radius: var(--r3);
+  padding: 28px;
+  box-shadow: 0 8px 32px rgba(0,0,0,.2);
+}
+.login-card .fg label { color: var(--txt2); }
+.btn-login {
+  width: 100%; background: var(--verde); color: #fff;
+  font-size: 13px; font-weight: 700; font-family: var(--font);
+  padding: 12px; border: none; border-radius: var(--r);
+  cursor: pointer; transition: background .15s; margin-top: 4px;
+  box-shadow: 0 2px 8px rgba(45,122,45,.3);
+}
+.btn-login:hover { background: var(--verde2); }
+.login-divider {
+  border-top: 1px solid var(--borde);
+  margin: 20px 0 14px; text-align: center;
+  font-size: 10px; color: var(--txt3);
+  font-family: var(--mono); letter-spacing: .1em;
+  padding-top: 14px; text-transform: uppercase;
+}
+.login-footer { text-align: center; margin-top: 16px; font-size: 11px; color: rgba(255,255,255,.6); }
+.inia-badge {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: rgba(255,255,255,.15); border: 1px solid rgba(255,255,255,.25);
+  border-radius: 20px; padding: 4px 12px;
+  font-size: 11px; color: rgba(255,255,255,.85);
+  margin-bottom: 14px;
+}
+.alerts { position: fixed; top: 16px; left: 50%; transform: translateX(-50%); width: 360px; z-index: 999; }
+.page { padding: 0; }
+</style>
+{% endblock %}
+{% block public_content %}
+<div class="login-page">
+  <div class="login-logo">
+    <div class="inia-badge">
+      🌱 Instituto Nacional de Innovación Agraria
+    </div>
+    <div class="login-mark">
+      <svg viewBox="0 0 24 24" fill="none" stroke="var(--verde)" stroke-width="2.5">
+        <path d="M9 3H5a2 2 0 00-2 2v4m6-6h10a2 2 0 012 2v4M9 3v18m0 0h10a2 2 0 002-2V9M9 21H5a2 2 0 01-2-2V9m0 0h18"/>
+      </svg>
+    </div>
+    <div class="login-title">LABSAF</div>
+    <div class="login-sub">Sistema de Inducción y Capacitación<br>F-52 / PRO-04 v10</div>
+  </div>
+
+  <div class="login-card">
+    {% if form.errors %}
+      <div class="alert alert-error" style="margin-bottom:16px">
+        Usuario o contraseña incorrectos. Intenta nuevamente.
+      </div>
+    {% endif %}
+    <form method="post">
+      {% csrf_token %}
+      <div class="fg">
+        <label>Usuario</label>
+        <input type="text" name="username" class="fc"
+               placeholder="nombre.apellido" autofocus autocomplete="username">
+      </div>
+      <div class="fg">
+        <label>Contraseña</label>
+        <input type="password" name="password" class="fc"
+               placeholder="••••••••" autocomplete="current-password">
+      </div>
+      <button type="submit" class="btn-login">Ingresar al sistema</button>
+    </form>
+    <div class="login-divider">Laboratorio de Suelos, Aguas y Foliares</div>
+    <div style="font-size:11px;color:var(--txt3);text-align:center">
+      Estación Experimental Agraria — INIA
+    </div>
+  </div>
+  <div class="login-footer">Solo personal autorizado · PRO-04 v10</div>
+</div>
+{% endblock %}

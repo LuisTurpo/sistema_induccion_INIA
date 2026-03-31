@@ -1,0 +1,104 @@
+{% extends 'base.html' %}
+{% block title %}Personal — LABSAF{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <div class="page-title">Gestión de Personal</div>
+    <div class="page-sub">Trabajadores registrados en el sistema LABSAF</div>
+  </div>
+  <a href="{% url 'personal:crear' %}" class="btn btn-primary">+ Registrar trabajador</a>
+</div>
+
+<div class="flex gap-10 mb-16" style="flex-wrap:wrap">
+  <div class="search" style="flex:1;min-width:200px">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--txt3)" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+    <input type="text" placeholder="Buscar por nombre, DNI o cargo..." id="q" oninput="filtrar()">
+  </div>
+  <select class="fc" style="width:160px" id="filtro-estado" onchange="filtrar()">
+    <option value="">Todos los estados</option>
+    <option value="proceso">En proceso</option>
+    <option value="activo">Activo</option>
+    <option value="inactivo">Inactivo</option>
+  </select>
+</div>
+
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr>
+        <th>Trabajador</th>
+        <th>DNI</th>
+        <th>Cargo</th>
+        <th>Área</th>
+        <th>Estado</th>
+        <th>Progreso</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody id="tbody">
+      {% for t in trabajadores %}
+      <tr data-nombre="{{ t.usuario.get_full_name|lower }}" data-dni="{{ t.dni }}" data-cargo="{{ t.cargo|lower }}" data-estado="{{ t.estado }}">
+        <td>
+          <div class="flex items-center gap-8">
+            <div class="av av-{% cycle 'a' 'b' 'c' 'd' 'a' 'b' 'c' 'd' %}">
+              {{ t.usuario.first_name|slice:":1" }}{{ t.usuario.last_name|slice:":1" }}
+            </div>
+            <div>
+              <div class="td-name">{{ t.usuario.get_full_name }}</div>
+              <div class="td-sub">{{ t.usuario.username }} · {{ t.usuario.rol }}</div>
+            </div>
+          </div>
+        </td>
+        <td class="font-mono text-muted">{{ t.dni }}</td>
+        <td>{{ t.cargo }}</td>
+        <td class="text-muted">{{ t.area }}</td>
+        <td>
+          {% if t.estado == 'activo' %}<span class="badge b-verde">Activo</span>
+          {% elif t.estado == 'proceso' %}<span class="badge b-amarillo">En proceso</span>
+          {% else %}<span class="badge b-gris">Inactivo</span>{% endif %}
+        </td>
+        <td>
+          <div class="prog">
+            <div class="prog-bar">
+              <div class="prog-fill {% if t.estado == 'activo' %}pf-verde{% else %}pf-azul{% endif %}"
+                   style="width:{% if t.estado == 'activo' %}100{% else %}30{% endif %}%"></div>
+            </div>
+            <span class="prog-pct text-xs">—</span>
+          </div>
+        </td>
+        <td>
+          <div class="flex gap-6">
+            <a href="{% url 'personal:detalle' t.pk %}" class="btn btn-ghost btn-sm">Ver</a>
+            <a href="{% url 'personal:editar' t.pk %}"  class="btn btn-ghost btn-sm">Editar</a>
+            <a href="{% url 'reportes:generar' t.pk %}" class="btn btn-ghost btn-sm text-verde">F-52</a>
+          </div>
+        </td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="7" class="td-empty">No hay trabajadores registrados. <a href="{% url 'personal:crear' %}" class="text-verde">Registra el primero →</a></td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<div id="no-resultados" style="display:none;text-align:center;padding:32px;color:var(--txt3);font-size:13px">
+  No se encontraron resultados para tu búsqueda.
+</div>
+{% endblock %}
+{% block extra_js %}
+<script>
+function filtrar() {
+  const q      = document.getElementById('q').value.toLowerCase();
+  const estado = document.getElementById('filtro-estado').value;
+  let visible  = 0;
+  document.querySelectorAll('#tbody tr').forEach(tr => {
+    const matchQ = !q || tr.dataset.nombre?.includes(q) || tr.dataset.dni?.includes(q) || tr.dataset.cargo?.includes(q);
+    const matchE = !estado || tr.dataset.estado === estado;
+    const show   = matchQ && matchE;
+    tr.style.display = show ? '' : 'none';
+    if (show) visible++;
+  });
+  document.getElementById('no-resultados').style.display = visible === 0 ? 'block' : 'none';
+}
+</script>
+{% endblock %}

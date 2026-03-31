@@ -1,0 +1,330 @@
+{% extends 'base.html' %}
+{% block title %}Firma Código de Ética D-03 — LABSAF{% endblock %}
+{% block extra_css %}
+<style>
+.max-800 { max-width: 800px; }
+.principio { padding:11px 14px; border-left:2px solid var(--verde); background:var(--verde-lt); border-radius:0 var(--r) var(--r) 0; margin-bottom:8px; }
+.principio-title { font-size:12px; font-weight:700; color:var(--verde2); margin-bottom:2px; }
+.principio-text  { font-size:11px; color:var(--txt3); line-height:1.5; }
+.check-item { display:flex; align-items:flex-start; gap:10px; padding:10px 0; border-bottom:1px solid var(--borde); }
+.check-item:last-child { border-bottom:none; }
+.check-item input[type=checkbox] { width:16px; height:16px; margin-top:2px; accent-color:var(--verde); flex-shrink:0; cursor:pointer; }
+.check-item label { font-size:13px; color:var(--txt2); cursor:pointer; line-height:1.5; }
+.firma-wrap { border:2px dashed var(--borde2); border-radius:var(--r2); background:#fff; overflow:hidden; position:relative; cursor:crosshair; transition:border-color .15s; }
+.firma-wrap:hover { border-color:var(--verde); }
+.firma-wrap.firmando { border-color:var(--verde); border-style:solid; }
+#canvas-firma { display:block; width:100%; height:160px; touch-action:none; }
+.firma-placeholder { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); font-size:13px; color:#aaa; pointer-events:none; text-align:center; transition:opacity .2s; }
+.firma-status { font-size:11px; margin-left:auto; color:var(--txt3); }
+.firma-status.ok { color:var(--verde); font-weight:600; }
+.steps { display:flex; gap:0; background:var(--bg3); border:1px solid var(--borde); border-radius:var(--r2); overflow:hidden; margin-bottom:20px; }
+.step { flex:1; padding:10px 14px; display:flex; align-items:center; gap:8px; font-size:12px; font-weight:500; color:var(--txt3); border-right:1px solid var(--borde); transition:all .15s; }
+.step:last-child { border-right:none; }
+.step.active { background:var(--verde-lt); color:var(--verde); font-weight:600; }
+.step.done   { color:var(--verde2); }
+.step-num { width:20px; height:20px; border-radius:50%; border:1.5px solid currentColor; display:flex; align-items:center; justify-content:center; font-size:10px; font-weight:700; flex-shrink:0; }
+.step.done .step-num { background:var(--verde); border-color:var(--verde); color:#fff; }
+
+/* Documento formal preview */
+#doc-preview {
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 40px 50px;
+  font-family: 'Times New Roman', serif;
+  color: #000;
+  font-size: 13px;
+  line-height: 1.8;
+  box-shadow: 0 2px 12px rgba(0,0,0,.08);
+}
+#doc-preview h3 {
+  text-align: center;
+  font-size: 14px;
+  text-decoration: underline;
+  text-transform: uppercase;
+  margin-bottom: 28px;
+  letter-spacing: .05em;
+}
+.doc-line {
+  display: inline-block;
+  border-bottom: 1px solid #000;
+  min-width: 200px;
+  padding: 0 4px;
+  font-weight: 700;
+}
+.firma-linea { border-top: 1px solid #000; width: 220px; margin: 0; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="max-800">
+  <div class="page-head">
+    <div>
+      <div class="page-title">Código de Ética — D-03</div>
+      <div class="page-sub">Declaración Jurada · LABSAF — INIA · PRO-04 §5.1</div>
+    </div>
+    <a href="{% url 'induccion:mis_documentos' %}" class="btn btn-ghost">← Volver</a>
+  </div>
+
+  <div class="steps">
+    <div class="step done"><div class="step-num">✓</div> Leer principios</div>
+    <div class="step active"><div class="step-num">2</div> Completar declaración</div>
+    <div class="step"><div class="step-num">3</div> Firma digital</div>
+  </div>
+
+  {% if doc_etica %}
+  <div class="card" style="margin-bottom:16px">
+    <div class="card-head">
+      <span class="card-title">Documento D-03 — Lee antes de firmar</span>
+      <a href="{{ doc_etica.archivo.url }}" target="_blank" class="btn btn-ghost btn-sm">↗ Abrir PDF completo</a>
+    </div>
+    <div style="height:30vh;background:#525659;overflow:hidden">
+      <canvas id="pdf-preview" style="display:block;margin:0 auto"></canvas>
+      <div id="pdf-loading" style="text-align:center;padding:40px;color:#aaa;font-size:13px">Cargando PDF...</div>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Principios resumidos -->
+  <div class="card" style="margin-bottom:16px">
+    <div class="card-head"><span class="card-title">Principios del Código de Ética LABSAF</span></div>
+    <div class="card-body" style="padding:14px 18px">
+      <div class="principio"><div class="principio-title">1. Imparcialidad</div><div class="principio-text">El personal debe ser imparcial y no involucrarse en actividades que disminuyan la confianza en su competencia técnica o integridad.</div></div>
+      <div class="principio"><div class="principio-title">2. Prohibición de soborno</div><div class="principio-text">Está prohibido involucrarse en cualquier actividad de soborno. Reportar inmediatamente al superior cualquier intento.</div></div>
+      <div class="principio"><div class="principio-title">3. Competencia técnica</div><div class="principio-text">Solo el personal competente realiza actividades con impacto en los resultados.</div></div>
+      <div class="principio"><div class="principio-title">4. Responsabilidad sobre muestras</div><div class="principio-text">Las muestras de ensayo son propiedad del cliente y deben protegerse adecuadamente.</div></div>
+      <div class="principio"><div class="principio-title">5. Transparencia e igualdad</div><div class="principio-text">Los servicios se brindan por igual, sin distinción, con acceso autorizado y confidencialidad.</div></div>
+      <div class="principio"><div class="principio-title">6. Confidencialidad</div><div class="principio-text">La información privada de los clientes y resultados de ensayos no debe difundirse por ningún medio.</div></div>
+    </div>
+  </div>
+
+  <form method="post" id="forma-firma">
+    {% csrf_token %}
+    <input type="hidden" name="firma_data"  id="firma-data-input">
+    <input type="hidden" name="ciudad"      id="ciudad-hidden">
+
+    <!-- DOCUMENTO FORMAL -->
+    <div class="card" style="margin-bottom:16px">
+      <div class="card-head" style="background:var(--verde-lt)">
+        <span class="card-title">Declaración Jurada — Documento Oficial</span>
+        <span class="text-xs text-muted">Este documento se generará como PDF para auditoría</span>
+      </div>
+      <div class="card-body">
+
+        <!-- Ciudad -->
+        <div class="fg" style="max-width:300px;margin-bottom:16px">
+          <label>Ciudad / Localidad <span class="req">*</span></label>
+          <input type="text" name="ciudad_txt" id="ciudad-txt" class="fc"
+                 placeholder="Ej: Puno, Arequipa, Lima..." required
+                 oninput="actualizarDocumento()">
+          <div class="hint">Se incluirá en el documento: "(Ciudad), día de mes del año."</div>
+        </div>
+
+        <!-- Preview del documento formal -->
+        <div id="doc-preview">
+          <h3>Declaracion Jurada de Conocimiento del Codigo de Etica</h3>
+          <p>
+            Yo, <span class="doc-line" id="dp-nombre">{{ trabajador.usuario.get_full_name }}</span>,
+          </p>
+          <p style="margin-top:8px">
+            identificado(a) con DNI N° <span class="doc-line" id="dp-dni">{{ trabajador.dni }}</span>
+            y con domicilio en <span class="doc-line" id="dp-ciudad" style="min-width:160px">___________</span>
+            ;
+          </p>
+          <p style="margin-top:16px">
+            <strong>DECLARO BAJO JURAMENTO</strong>, que tengo conocimiento del presente Codigo de Etica
+            del Laboratorio de Suelos, Aguas y Foliares — LABSAF del INIA.
+          </p>
+          <p style="margin-top:8px">
+            Asimismo, declaro que me comprometo a observarlas y cumplirlas en toda circunstancia.
+          </p>
+          <p style="text-align:right; margin-top:24px">
+            <em>(Ciudad)</em>, <strong id="dp-dia">{{ fecha_hoy.day }}</strong> de &nbsp;
+            <span class="doc-line" id="dp-mes" style="min-width:80px;text-align:center">{{ fecha_hoy|date:"F" }}</span>
+            &nbsp; del <strong>{{ fecha_hoy.year }}</strong>.
+          </p>
+
+          <!-- Firma -->
+          <div style="margin-top:36px;display:flex;flex-direction:column;align-items:flex-start;gap:4px">
+            <div style="width:220px;height:90px;border:1px dashed #bbb;border-radius:4px;overflow:hidden;background:#fafafa;position:relative" id="firma-preview-area">
+              <img id="firma-preview-doc" style="width:100%;height:100%;object-fit:contain;display:none">
+              <div id="firma-preview-placeholder" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:11px;color:#bbb;text-align:center">Firma aquí abajo</div>
+            </div>
+            <hr class="firma-linea">
+            <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.05em">Firma</div>
+            <div style="font-size:12px">DNI: <strong>{{ trabajador.dni }}</strong></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Checkboxes declaración -->
+    <div class="card" style="margin-bottom:16px">
+      <div class="card-head"><span class="card-title">Confirmación de lectura</span></div>
+      <div class="card-body">
+        <div style="border:1px solid var(--borde);border-radius:var(--r);padding:14px">
+          <div class="check-item">
+            <input type="checkbox" name="check1" id="c1" required>
+            <label for="c1">He leído y comprendido todos los principios del Código de Ética D-03 de LABSAF.</label>
+          </div>
+          <div class="check-item">
+            <input type="checkbox" name="check2" id="c2" required>
+            <label for="c2">Me comprometo a actuar con imparcialidad, honradez y transparencia en todas mis actividades.</label>
+          </div>
+          <div class="check-item">
+            <input type="checkbox" name="check3" id="c3" required>
+            <label for="c3">Entiendo que las violaciones al Código de Ética conllevan acciones disciplinarias.</label>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Canvas de firma -->
+    <div class="card" style="margin-bottom:16px">
+      <div class="card-head">
+        <span class="card-title">Firma digital</span>
+        <span class="text-xs text-muted">Dibuja tu firma con el mouse o dedo</span>
+      </div>
+      <div class="card-body">
+        <div class="alert alert-info" style="margin-bottom:14px">
+          Tu firma quedará registrada con nombre, DNI, IP y fecha/hora exacta.
+          También se generará un documento PDF para la auditoría.
+        </div>
+        <div class="firma-wrap" id="firma-wrap">
+          <canvas id="canvas-firma"></canvas>
+          <div class="firma-placeholder" id="firma-placeholder">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="margin:0 auto 6px;display:block;opacity:.3"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+            Dibuja tu firma aquí
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:8px;align-items:center">
+          <button type="button" class="btn btn-ghost btn-sm" onclick="limpiarFirma()">↺ Limpiar</button>
+          <span class="firma-status" id="firma-status">Sin firma aún</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="alert alert-warning" style="margin-bottom:16px">
+      Esta firma digital tiene validez dentro del sistema de gestión LABSAF — INIA y equivale a tu firma física en el D-03.
+    </div>
+
+    <div class="flex gap-12 items-center flex-wrap">
+      <button type="submit" class="btn btn-primary btn-lg" id="btn-firmar" disabled>
+        ✍ Firmar y generar documento PDF
+      </button>
+      <a href="{% url 'induccion:mis_documentos' %}" class="btn btn-ghost">Cancelar</a>
+      <span class="text-xs text-muted" id="submit-hint">Completa todos los campos y dibuja tu firma</span>
+    </div>
+  </form>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+{% if doc_etica %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script>
+pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+pdfjsLib.getDocument('{{ doc_etica.archivo.url }}').promise.then(pdf => {
+  document.getElementById('pdf-loading').style.display = 'none';
+  pdf.getPage(1).then(page => {
+    const canvas = document.getElementById('pdf-preview');
+    const scale  = canvas.parentElement.offsetWidth / page.getViewport({scale:1}).width;
+    const vp     = page.getViewport({scale});
+    canvas.width = vp.width; canvas.height = vp.height;
+    page.render({canvasContext: canvas.getContext('2d'), viewport: vp});
+  });
+}).catch(() => { document.getElementById('pdf-loading').innerHTML = '<span style="color:#f87171">No se pudo cargar.</span>'; });
+</script>
+{% endif %}
+
+<script>
+// ── Canvas firma ──────────────────────────────────────────────────────────────
+const canvas  = document.getElementById('canvas-firma');
+const ctx     = canvas.getContext('2d');
+const wrap    = document.getElementById('firma-wrap');
+const ph      = document.getElementById('firma-placeholder');
+let dibujando = false, tieneFirma = false;
+
+function ajustarCanvas() {
+  const r = canvas.getBoundingClientRect(), dpr = window.devicePixelRatio||1;
+  canvas.width  = r.width  * dpr;
+  canvas.height = r.height * dpr;
+  ctx.scale(dpr, dpr);
+  ctx.strokeStyle = '#1a1a2e';
+  ctx.lineWidth   = 2.2;
+  ctx.lineCap = ctx.lineJoin = 'round';
+}
+ajustarCanvas();
+window.addEventListener('resize', () => { ajustarCanvas(); tieneFirma = false; validar(); });
+
+function pos(e) {
+  const r = canvas.getBoundingClientRect(), s = e.touches ? e.touches[0] : e;
+  return { x: s.clientX - r.left, y: s.clientY - r.top };
+}
+canvas.addEventListener('mousedown',  e => { e.preventDefault(); dibujando=true; wrap.classList.add('firmando'); ph.style.opacity='0'; const p=pos(e); ctx.beginPath(); ctx.moveTo(p.x,p.y); });
+canvas.addEventListener('mousemove',  e => { if(!dibujando) return; e.preventDefault(); const p=pos(e); ctx.lineTo(p.x,p.y); ctx.stroke(); });
+canvas.addEventListener('mouseup',    e => { if(!dibujando) return; dibujando=false; tieneFirma=true; wrap.classList.remove('firmando'); guardarFirma(); validar(); });
+canvas.addEventListener('mouseleave', e => { if(!dibujando) return; dibujando=false; wrap.classList.remove('firmando'); });
+canvas.addEventListener('touchstart', e => { e.preventDefault(); dibujando=true; ph.style.opacity='0'; const p=pos(e); ctx.beginPath(); ctx.moveTo(p.x,p.y); }, {passive:false});
+canvas.addEventListener('touchmove',  e => { if(!dibujando) return; e.preventDefault(); const p=pos(e); ctx.lineTo(p.x,p.y); ctx.stroke(); }, {passive:false});
+canvas.addEventListener('touchend',   e => { dibujando=false; tieneFirma=true; guardarFirma(); validar(); });
+
+function limpiarFirma() {
+  const r = canvas.getBoundingClientRect();
+  ctx.clearRect(0,0,r.width,r.height);
+  tieneFirma = false; ph.style.opacity='1';
+  document.getElementById('firma-data-input').value = '';
+  document.getElementById('firma-preview-doc').style.display = 'none';
+  document.getElementById('firma-preview-placeholder').style.display = 'block';
+  validar();
+}
+
+function guardarFirma() {
+  const data = canvas.toDataURL('image/png');
+  document.getElementById('firma-data-input').value = data;
+  // Mostrar en preview del documento
+  const img = document.getElementById('firma-preview-doc');
+  img.src = data; img.style.display = 'block';
+  document.getElementById('firma-preview-placeholder').style.display = 'none';
+}
+
+// ── Ciudad en documento ───────────────────────────────────────────────────────
+function actualizarDocumento() {
+  const ciudad = document.getElementById('ciudad-txt').value.trim();
+  document.getElementById('dp-ciudad').textContent = ciudad || '___________';
+  document.getElementById('ciudad-hidden').value = ciudad;
+  validar();
+}
+
+// ── Validar todo ──────────────────────────────────────────────────────────────
+function validar() {
+  const c1 = document.getElementById('c1').checked;
+  const c2 = document.getElementById('c2').checked;
+  const c3 = document.getElementById('c3').checked;
+  const ciudad = document.getElementById('ciudad-txt').value.trim();
+  const btn  = document.getElementById('btn-firmar');
+  const st   = document.getElementById('firma-status');
+  const hint = document.getElementById('submit-hint');
+
+  st.textContent = tieneFirma ? '✓ Firma registrada' : 'Sin firma aún';
+  st.className   = tieneFirma ? 'firma-status ok' : 'firma-status';
+
+  const todo = c1 && c2 && c3 && tieneFirma && ciudad;
+  btn.disabled = !todo;
+
+  if (!ciudad)          hint.textContent = 'Escribe tu ciudad/localidad';
+  else if (!c1||!c2||!c3) hint.textContent = 'Marca todos los checkboxes';
+  else if (!tieneFirma)   hint.textContent = 'Dibuja tu firma para continuar';
+  else { hint.textContent = '¡Todo listo! Puedes firmar.'; hint.style.color = 'var(--verde)'; }
+}
+
+['c1','c2','c3'].forEach(id => document.getElementById(id).addEventListener('change', validar));
+
+document.getElementById('forma-firma').addEventListener('submit', function(e) {
+  if (!tieneFirma) { e.preventDefault(); alert('Debes dibujar tu firma.'); return; }
+  if (!document.getElementById('ciudad-txt').value.trim()) { e.preventDefault(); alert('Ingresa tu ciudad.'); return; }
+  const btn = document.getElementById('btn-firmar');
+  btn.textContent = 'Generando documento...'; btn.disabled = true;
+});
+</script>
+{% endblock %}

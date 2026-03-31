@@ -1,0 +1,73 @@
+{% extends 'base.html' %}
+{% block title %}Resultado — LABSAF{% endblock %}
+{% block content %}
+<div style="max-width:700px;margin:0 auto">
+
+  <!-- Resultado principal -->
+  <div class="card" style="border-top:3px solid {% if intento.aprobado %}var(--verde){% else %}var(--rojo){% endif %};margin-bottom:20px">
+    <div class="card-body" style="padding:32px;text-align:center">
+      <div style="font-size:56px;font-weight:700;letter-spacing:-.03em;margin-bottom:8px;
+                  color:{% if intento.aprobado %}var(--verde){% else %}var(--rojo){% endif %}">
+        {{ intento.puntuacion }}
+      </div>
+      <div class="text-sm text-muted" style="margin-bottom:14px">sobre 20 puntos</div>
+      <div style="font-size:20px;font-weight:600;color:var(--txt);margin-bottom:8px">
+        {% if intento.aprobado %}¡Aprobado!{% else %}No aprobado{% endif %}
+      </div>
+      <div class="text-xs text-muted">
+        {{ intento.evaluacion.titulo }} · Intento N° {{ intento.numero_intento }}
+        · Nota mínima requerida: {{ intento.evaluacion.nota_minima }}
+      </div>
+      {% if not intento.aprobado %}
+        <div class="alert alert-warning" style="margin-top:16px;text-align:left">
+          Puedes volver a rendir la evaluación. Revisa las preguntas incorrectas abajo para mejorar tu nota.
+        </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Detalle de respuestas -->
+  <div class="card" style="margin-bottom:20px">
+    <div class="card-head"><span class="card-title">Detalle de respuestas</span></div>
+    <div>
+      {% for r in respuestas %}
+      <div style="padding:14px 18px;border-bottom:1px solid var(--borde);
+                  background:{% if r.correcta %}rgba(34,197,94,.04){% else %}rgba(239,68,68,.04){% endif %}">
+        <div class="flex items-center gap-10" style="margin-bottom:8px">
+          <div style="width:22px;height:22px;border-radius:50%;flex-shrink:0;
+                      display:flex;align-items:center;justify-content:center;
+                      font-size:11px;font-weight:700;
+                      background:{% if r.correcta %}var(--verde){% else %}var(--rojo){% endif %};
+                      color:#000">
+            {% if r.correcta %}✓{% else %}✗{% endif %}
+          </div>
+          <span class="font-600 text-sm" style="color:var(--txt)">{{ r.pregunta.enunciado }}</span>
+        </div>
+        <div style="margin-left:32px;font-size:12px">
+          <span class="text-muted">Tu respuesta: </span>
+          <span style="font-weight:500;color:{% if r.correcta %}var(--verde){% else %}#f87171{% endif %}">
+            {{ r.opcion.texto }}
+          </span>
+          {% if not r.correcta %}
+            <span class="text-muted" style="margin-left:10px">— Correcta:
+              <strong style="color:var(--verde)">
+                {% for op in r.pregunta.opciones.all %}{% if op.es_correcta %}{{ op.texto }}{% endif %}{% endfor %}
+              </strong>
+            </span>
+          {% endif %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <div class="flex gap-12 flex-wrap">
+    {% if not intento.aprobado and intento.numero_intento < intento.evaluacion.max_intentos %}
+      <a href="{% url 'evaluaciones:rendir' intento.evaluacion.pk %}" class="btn btn-primary">Reintentar evaluación</a>
+    {% endif %}
+    <a href="{% url 'evaluaciones:mis_evaluaciones' %}" class="btn btn-ghost">← Mis evaluaciones</a>
+    <a href="{% url 'dashboard' %}" class="btn btn-ghost">Ir al panel</a>
+  </div>
+
+</div>
+{% endblock %}

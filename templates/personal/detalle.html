@@ -1,0 +1,124 @@
+{% extends 'base.html' %}
+{% block title %}{{ trabajador.usuario.get_full_name }} — LABSAF{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <div class="page-title">{{ trabajador.usuario.get_full_name }}</div>
+    <div class="page-sub">{{ trabajador.cargo }} · {{ trabajador.area }}</div>
+  </div>
+  <div class="flex gap-8">
+    <a href="{% url 'personal:editar' trabajador.pk %}" class="btn btn-ghost">Editar</a>
+    <a href="{% url 'personal:lista' %}" class="btn btn-ghost">← Volver</a>
+  </div>
+</div>
+
+<div class="grid2" style="align-items:flex-start;gap:20px;margin-bottom:20px">
+
+  <!-- Datos personales -->
+  <div class="card">
+    <div class="card-head"><span class="card-title">Datos del personal</span></div>
+    <div>
+      {% for label, value in datos %}
+      <div style="display:flex;padding:10px 18px;border-bottom:1px solid var(--borde)">
+        <span style="width:42%;font-size:11px;font-weight:600;color:var(--txt3);text-transform:uppercase;letter-spacing:.04em;flex-shrink:0">{{ label }}</span>
+        <span style="font-size:13px;color:var(--txt)">{{ value }}</span>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- Progreso inducción -->
+  <div class="card">
+    <div class="card-head"><span class="card-title">Progreso de inducción</span></div>
+    <div>
+
+      {% with lecturas=trabajador.lecturas.all %}
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:11px 18px;border-bottom:1px solid var(--borde)">
+        <span class="text-sm">Documentos leídos</span>
+        <span class="badge {% if lecturas %}b-verde{% else %}b-gris{% endif %}">{{ lecturas|length }} docs</span>
+      </div>
+      {% endwith %}
+
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:11px 18px;border-bottom:1px solid var(--borde)">
+        <span class="text-sm">Firma Código de Ética D-03</span>
+        {% if trabajador.firma_etica %}
+          <span class="badge b-verde">✓ {{ trabajador.firma_etica.fecha_firma|date:"d/m/Y" }}</span>
+        {% else %}
+          <span class="badge b-gris">Pendiente</span>
+        {% endif %}
+      </div>
+
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:11px 18px;border-bottom:1px solid var(--borde)">
+        <span class="text-sm">Evaluaciones</span>
+        <span class="badge b-azul">{{ trabajador.intentos.all|length }} intento(s)</span>
+      </div>
+
+      {% with rev=trabajador.revisiones.last %}
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:11px 18px;border-bottom:1px solid var(--borde)">
+        <span class="text-sm">Supervisión</span>
+        {% if rev %}
+          {% if rev.estado == 'aprobado' %}<span class="badge b-verde">Aprobado</span>
+          {% elif rev.estado == 'observado' %}<span class="badge b-amarillo">Con observaciones</span>
+          {% else %}<span class="badge b-gris">{{ rev.get_estado_display }}</span>{% endif %}
+        {% else %}<span class="badge b-gris">Sin revisión</span>{% endif %}
+      </div>
+      {% endwith %}
+
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:11px 18px">
+        <span class="text-sm">Autorización final</span>
+        {% if trabajador.autorizacion %}
+          {% if trabajador.autorizacion.estado == 'autorizado' %}<span class="badge b-verde">Autorizado</span>
+          {% elif trabajador.autorizacion.estado == 'rechazado' %}<span class="badge b-rojo">Rechazado</span>
+          {% else %}<span class="badge b-amarillo">Pendiente</span>{% endif %}
+        {% else %}<span class="badge b-gris">Pendiente</span>{% endif %}
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- Historial evaluaciones -->
+<div class="table-wrap" style="margin-bottom:20px">
+  <div style="padding:13px 18px;border-bottom:1px solid var(--borde)">
+    <span class="card-title">Historial de evaluaciones</span>
+  </div>
+  <table>
+    <thead>
+      <tr><th>Evaluación</th><th>Tipo</th><th>Intento</th><th>Nota</th><th>Estado</th><th>Fecha</th></tr>
+    </thead>
+    <tbody>
+      {% for intento in trabajador.intentos.all %}
+      <tr>
+        <td><span class="td-name">{{ intento.evaluacion.titulo }}</span></td>
+        <td><span class="badge b-azul">{{ intento.evaluacion.get_tipo_display }}</span></td>
+        <td class="font-mono">{{ intento.numero_intento }}</td>
+        <td><strong class="font-mono text-verde">{{ intento.puntuacion }}</strong>/20</td>
+        <td>{% if intento.aprobado %}<span class="badge b-verde">Aprobado</span>{% else %}<span class="badge b-rojo">Desaprobado</span>{% endif %}</td>
+        <td class="text-muted text-xs">{{ intento.fecha_fin|date:"d/m/Y H:i"|default:"—" }}</td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="6" class="td-empty">Sin evaluaciones rendidas aún.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+  <!-- Acciones -->
+  <div class="card">
+    <div class="card-body flex gap-10 flex-wrap">
+      <a href="{% url 'supervision:revisar' trabajador.pk %}" class="btn btn-ghost">Supervisar</a>
+      <a href="{% url 'autorizaciones:autorizar' trabajador.pk %}" class="btn btn-ghost">Autorizar</a>
+      <a href="{% url 'reportes:generar' trabajador.pk %}" class="btn btn-primary">Generar Excel F-52</a>
+      {% if trabajador.autorizacion.excel_generado %}
+        <a href="{% url 'reportes:descargar' trabajador.pk %}" class="btn btn-ghost text-verde">Descargar Excel</a>
+      {% endif %}
+      {% if trabajador.firma_etica %}
+      <a href="{% url 'induccion:descargar_declaracion' trabajador.pk %}"
+      class="btn btn-ghost text-verde">
+      ↓ Descargar Declaración Jurada PDF
+    </a>
+  {% endif %}
+      <a href="{% url 'personal:eliminar' trabajador.pk %}" class="btn btn-danger" style="margin-left:auto">Eliminar trabajador</a>
+    </div>
+  </div>
+  {% endblock %}

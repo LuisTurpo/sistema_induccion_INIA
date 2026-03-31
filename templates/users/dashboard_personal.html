@@ -1,0 +1,138 @@
+{% extends 'base.html' %}
+{% block title %}Mi progreso — LABSAF{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <div class="page-title">Bienvenido, {{ user.first_name }}</div>
+    <div class="page-sub">
+      {% if user.trabajador.cargo %}{{ user.trabajador.cargo }} · {% endif %}
+      {% if user.trabajador.area %}{{ user.trabajador.area }} · {% endif %}
+      Proceso de inducción PRO-04
+    </div>
+  </div>
+  <span class="badge {% if progreso == 100 %}b-verde{% elif progreso > 50 %}b-azul{% else %}b-amarillo{% endif %}"
+        style="font-size:13px;padding:6px 14px">
+    {{ progreso }}% completado
+  </span>
+</div>
+
+<!-- Barra de progreso general -->
+<div class="card mb-20" style="margin-bottom:20px">
+  <div class="card-body">
+    <div class="flex items-center justify-between mb-12" style="margin-bottom:12px">
+      <span class="text-sm font-600">Progreso general de inducción</span>
+      <span class="text-xs text-muted font-mono">{{ progreso }}/100%</span>
+    </div>
+    <div class="prog-bar" style="height:8px;border-radius:4px;margin-bottom:20px">
+      <div class="prog-fill {% if progreso == 100 %}pf-verde{% elif progreso > 50 %}pf-azul{% else %}pf-amarillo{% endif %}"
+           style="width:{{ progreso }}%;height:100%;border-radius:4px"></div>
+    </div>
+
+    <!-- Pasos del proceso -->
+    <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px">
+
+      <div style="text-align:center;padding:14px 8px;border-radius:8px;
+                  background:{% if docs_ok %}var(--vglow2){% else %}var(--bg3){% endif %};
+                  border:1px solid {% if docs_ok %}rgba(34,197,94,.2){% else %}var(--borde){% endif %}">
+        <div style="font-size:18px;margin-bottom:6px;color:{% if docs_ok %}var(--verde){% else %}var(--txt3){% endif %}">
+          {% if docs_ok %}✓{% else %}○{% endif %}
+        </div>
+        <div style="font-size:11px;font-weight:600;color:{% if docs_ok %}var(--verde){% else %}var(--txt3){% endif %}">
+          Documentos
+        </div>
+      </div>
+
+      <div style="text-align:center;padding:14px 8px;border-radius:8px;
+                  background:{% if firma_ok %}var(--vglow2){% else %}var(--bg3){% endif %};
+                  border:1px solid {% if firma_ok %}rgba(34,197,94,.2){% else %}var(--borde){% endif %}">
+        <div style="font-size:18px;margin-bottom:6px;color:{% if firma_ok %}var(--verde){% else %}var(--txt3){% endif %}">
+          {% if firma_ok %}✓{% else %}○{% endif %}
+        </div>
+        <div style="font-size:11px;font-weight:600;color:{% if firma_ok %}var(--verde){% else %}var(--txt3){% endif %}">
+          Firma D-03
+        </div>
+      </div>
+
+      <div style="text-align:center;padding:14px 8px;border-radius:8px;
+                  background:{% if eval_ok %}var(--vglow2){% else %}var(--bg3){% endif %};
+                  border:1px solid {% if eval_ok %}rgba(34,197,94,.2){% else %}var(--borde){% endif %}">
+        <div style="font-size:18px;margin-bottom:6px;color:{% if eval_ok %}var(--verde){% else %}var(--txt3){% endif %}">
+          {% if eval_ok %}✓{% else %}○{% endif %}
+        </div>
+        <div style="font-size:11px;font-weight:600;color:{% if eval_ok %}var(--verde){% else %}var(--txt3){% endif %}">
+          Evaluación
+        </div>
+      </div>
+
+<div style="text-align:center;padding:14px 8px;border-radius:8px;
+            background:{% if supervision_ok %}var(--vglow2){% else %}var(--bg3){% endif %};
+            border:1px solid {% if supervision_ok %}rgba(45,122,45,.2){% else %}var(--borde){% endif %}">
+  <div style="font-size:18px;margin-bottom:6px;color:{% if supervision_ok %}var(--verde){% else %}var(--txt3){% endif %}">
+    {% if supervision_ok %}✓{% else %}○{% endif %}
+  </div>
+  <div style="font-size:11px;font-weight:600;color:{% if supervision_ok %}var(--verde){% else %}var(--txt3){% endif %}">
+    Supervisión
+  </div>
+</div>
+
+<div style="text-align:center;padding:14px 8px;border-radius:8px;
+            background:{% if autorizacion_ok %}var(--vglow2){% else %}var(--bg3){% endif %};
+            border:1px solid {% if autorizacion_ok %}rgba(45,122,45,.2){% else %}var(--borde){% endif %}">
+  <div style="font-size:18px;margin-bottom:6px;color:{% if autorizacion_ok %}var(--verde){% else %}var(--txt3){% endif %}">
+    {% if autorizacion_ok %}✓{% else %}○{% endif %}
+  </div>
+  <div style="font-size:11px;font-weight:600;color:{% if autorizacion_ok %}var(--verde){% else %}var(--txt3){% endif %}">
+    Autorización
+  </div>
+</div>
+
+    </div>
+  </div>
+</div>
+
+<!-- Accesos rápidos -->
+<div class="grid2">
+  <a href="{% url 'induccion:mis_documentos' %}" style="text-decoration:none">
+    <div class="card" style="cursor:pointer;transition:border-color .15s"
+         onmouseover="this.style.borderColor='var(--borde3)'"
+         onmouseout="this.style.borderColor='var(--borde)'">
+      <div class="card-head">
+        <span class="card-title">Documentos e Inducción</span>
+        {% if docs_ok %}
+          <span class="badge b-verde">Completado</span>
+        {% else %}
+          <span class="badge b-amarillo">Pendiente</span>
+        {% endif %}
+      </div>
+      <div class="card-body">
+        <p class="text-sm text-muted" style="margin-bottom:14px">
+          Lee los documentos del sistema de gestión y firma el Código de Ética D-03.
+        </p>
+        <span class="btn btn-primary btn-sm">Ir a documentos →</span>
+      </div>
+    </div>
+  </a>
+
+  <a href="{% url 'evaluaciones:mis_evaluaciones' %}" style="text-decoration:none">
+    <div class="card" style="cursor:pointer;transition:border-color .15s"
+         onmouseover="this.style.borderColor='var(--borde3)'"
+         onmouseout="this.style.borderColor='var(--borde)'">
+      <div class="card-head">
+        <span class="card-title">Mis Evaluaciones</span>
+        {% if eval_ok %}
+          <span class="badge b-verde">Completado</span>
+        {% else %}
+          <span class="badge b-gris">Pendiente</span>
+        {% endif %}
+      </div>
+      <div class="card-body">
+        <p class="text-sm text-muted" style="margin-bottom:14px">
+          Rinde las evaluaciones de inducción y entrenamiento.
+          Nota mínima aprobatoria: <strong style="color:var(--txt)">14</strong>.
+        </p>
+        <span class="btn btn-ghost btn-sm">Ir a evaluaciones →</span>
+      </div>
+    </div>
+  </a>
+</div>
+{% endblock %}

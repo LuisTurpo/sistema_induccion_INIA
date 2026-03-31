@@ -1,0 +1,173 @@
+{% extends 'base.html' %}
+{% block title %}Mis Evaluaciones — LABSAF{% endblock %}
+{% block extra_css %}
+<style>
+.nivel-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 16px;
+  border-radius: var(--r2) var(--r2) 0 0;
+  border: 1px solid var(--borde);
+  margin-bottom: 0;
+}
+.nivel-body {
+  border: 1px solid var(--borde);
+  border-top: none;
+  border-radius: 0 0 var(--r2) var(--r2);
+  overflow: hidden;
+  margin-bottom: 16px;
+}
+.nivel-progress {
+  height: 4px;
+  background: var(--bg4);
+  border-radius: 0;
+}
+.nivel-progress-fill {
+  height: 100%;
+  transition: width .4s;
+}
+.ev-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 13px 16px;
+  border-bottom: 1px solid var(--borde);
+  gap: 12px; flex-wrap: wrap;
+  background: var(--bg2);
+  transition: background .1s;
+}
+.ev-row:last-child { border-bottom: none; }
+.ev-row:hover { background: var(--verde-lt); }
+.ev-info { flex: 1; min-width: 0; }
+.ev-title { font-size: 13px; font-weight: 600; color: var(--txt); margin-bottom: 4px; }
+.ev-meta  { display: flex; gap: 12px; font-size: 11px; color: var(--txt3); flex-wrap: wrap; }
+.nota-chip {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 11px; font-weight: 600;
+  padding: 2px 8px; border-radius: 12px;
+  font-family: var(--mono);
+}
+.nc-aprobado  { background: var(--verde-lt); color: var(--verde2); border: 1px solid var(--borde2); }
+.nc-reprobado { background: #fef2f2; color: #c0392b; border: 1px solid #fecaca; }
+.nc-pendiente { background: var(--bg3); color: var(--txt3); border: 1px solid var(--borde); }
+
+/* Colores por nivel */
+.n-induccion          { background: rgba(34,197,94,.08);  border-color: rgba(34,197,94,.25); }
+.n-gestion            { background: rgba(59,130,246,.08); border-color: rgba(59,130,246,.25); }
+.n-tecnico_general    { background: rgba(245,158,11,.08); border-color: rgba(245,158,11,.25); }
+.n-tecnico_especifico { background: rgba(168,85,247,.08); border-color: rgba(168,85,247,.25); }
+.pf-induccion          { background: var(--verde); }
+.pf-gestion            { background: var(--azul); }
+.pf-tecnico_general    { background: var(--amarillo); }
+.pf-tecnico_especifico { background: var(--morado); }
+.badge-induccion          { background: rgba(34,197,94,.12);  color: var(--verde2); }
+.badge-gestion            { background: rgba(59,130,246,.1);  color: var(--azul); }
+.badge-tecnico_general    { background: rgba(245,158,11,.1);  color: var(--amarillo); }
+.badge-tecnico_especifico { background: rgba(168,85,247,.1);  color: var(--morado); }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div>
+    <div class="page-title">Mis Evaluaciones</div>
+    <div class="page-sub">
+      {% if trabajador.cargo %}
+        Cargo: <strong>{{ trabajador.cargo }}</strong> · Nota mínima aprobatoria: 14 · PRO-04 §5.1 / MAN-02
+      {% else %}
+        Nota mínima aprobatoria: 14 · PRO-04 §5.1
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+{% if not grupos %}
+<div class="card">
+  <div class="card-body" style="text-align:center;padding:48px;color:var(--txt3)">
+    <div style="font-size:32px;margin-bottom:12px">📋</div>
+    <div style="font-size:14px;font-weight:600;margin-bottom:6px">No tienes evaluaciones asignadas</div>
+    <div style="font-size:12px">El administrador debe crear evaluaciones y asignarlas a tu cargo ({{ trabajador.cargo|default:"sin cargo" }}).</div>
+  </div>
+</div>
+{% endif %}
+
+{% for grupo in grupos %}
+<div>
+  <!-- Cabecera del nivel -->
+  <div class="nivel-header n-{{ grupo.nivel }}">
+    <div>
+      <div style="font-size:13px;font-weight:700;color:var(--txt);margin-bottom:2px">
+        {{ grupo.label }}
+      </div>
+      <div style="font-size:11px;color:var(--txt3)">{{ grupo.desc }}</div>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px">
+      <div style="text-align:right">
+        <div style="font-size:18px;font-weight:700;color:var(--txt)">{{ grupo.aprobados }}/{{ grupo.total }}</div>
+        <div style="font-size:10px;color:var(--txt3)">completadas</div>
+      </div>
+      {% if grupo.completo %}
+        <span class="badge b-verde" style="font-size:12px;padding:5px 12px">✓ Completado</span>
+      {% else %}
+        <span class="badge badge-{{ grupo.nivel }}" style="font-size:12px;padding:5px 12px">{{ grupo.pct }}%</span>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Barra de progreso del nivel -->
+  <div class="nivel-progress">
+    <div class="nivel-progress-fill pf-{{ grupo.nivel }}" style="width:{{ grupo.pct }}%"></div>
+  </div>
+
+  <!-- Lista de evaluaciones del nivel -->
+  <div class="nivel-body">
+    {% for item in grupo.items %}
+    <div class="ev-row">
+      <div class="ev-info">
+        <div class="ev-title">{{ item.evaluacion.titulo }}</div>
+        <div class="ev-meta">
+          <span>Nota mín: <strong>{{ item.evaluacion.nota_minima }}</strong></span>
+          <span>Intentos: <strong>{{ item.num_intentos }}</strong>/{{ item.evaluacion.max_intentos }}</span>
+          {% if item.evaluacion.tiempo_limite %}
+            <span>⏱ {{ item.evaluacion.tiempo_limite }} min</span>
+          {% endif %}
+          {% if item.ultimo_intento and item.ultimo_intento.fecha_fin %}
+            <span>Último: {{ item.ultimo_intento.fecha_fin|date:"d/m/Y" }}</span>
+          {% endif %}
+        </div>
+      </div>
+
+      <div style="display:flex;align-items:center;gap:8px">
+        <!-- Nota del último intento -->
+        {% if item.ultimo_intento %}
+          <span class="nota-chip {% if item.aprobado %}nc-aprobado{% else %}nc-reprobado{% endif %}">
+            {% if item.aprobado %}✓{% else %}✗{% endif %}
+            {{ item.ultimo_intento.puntuacion }}/20
+          </span>
+        {% else %}
+          <span class="nota-chip nc-pendiente">Sin rendir</span>
+        {% endif %}
+
+        <!-- Botones -->
+        {% if item.aprobado %}
+          <span class="badge b-verde">Aprobado</span>
+          {% if item.ultimo_intento %}
+            <a href="{% url 'evaluaciones:resultado' item.ultimo_intento.pk %}" class="btn btn-ghost btn-sm">Ver resultado</a>
+          {% endif %}
+        {% elif item.num_intentos >= item.evaluacion.max_intentos %}
+          <span class="badge b-rojo">Intentos agotados</span>
+        {% elif item.puede_intentar %}
+          <a href="{% url 'evaluaciones:rendir' item.evaluacion.pk %}"
+             class="btn btn-primary btn-sm">
+            {% if item.num_intentos == 0 %}Rendir{% else %}Reintentar{% endif %}
+          </a>
+          {% if item.ultimo_intento %}
+            <a href="{% url 'evaluaciones:resultado' item.ultimo_intento.pk %}" class="btn btn-ghost btn-sm">Ver último</a>
+          {% endif %}
+        {% else %}
+          <span class="badge b-gris">Sin preguntas</span>
+        {% endif %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endfor %}
+{% endblock %}

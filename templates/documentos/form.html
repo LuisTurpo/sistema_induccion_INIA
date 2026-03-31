@@ -1,0 +1,78 @@
+{% extends 'base.html' %}
+{% block title %}{{ titulo }} — LABSAF{% endblock %}
+{% block content %}
+<div style="max-width:620px;margin:0 auto">
+  <div class="page-head">
+    <div>
+      <div class="page-title">{{ titulo }}</div>
+      <div class="page-sub">Los documentos subidos serán visibles para todos los trabajadores activos</div>
+    </div>
+    <a href="{% url 'documentos:lista' %}" class="btn btn-ghost">← Volver</a>
+  </div>
+
+  <div class="card">
+    <div class="card-body">
+      <form method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+
+        <div class="fg">
+          <label>Título del documento <span class="req">*</span></label>
+          <input type="text" name="titulo" class="fc {% if form.titulo.errors %}err{% endif %}"
+                 placeholder="Ej: Código de Ética D-03"
+                 value="{{ form.titulo.value|default:'' }}" required>
+          {% if form.titulo.errors %}<div class="ferr">{{ form.titulo.errors.0 }}</div>{% endif %}
+        </div>
+
+        <div class="grid2">
+          <div class="fg">
+            <label>Tipo de documento <span class="req">*</span></label>
+            <select name="tipo" class="fc {% if form.tipo.errors %}err{% endif %}" required>
+              <option value="">Seleccionar tipo...</option>
+              <option value="induccion"  {% if form.tipo.value == 'induccion' %}selected{% endif %}>Inducción</option>
+              <option value="etica"      {% if form.tipo.value == 'etica' %}selected{% endif %}>Código de ética</option>
+              <option value="gestion"    {% if form.tipo.value == 'gestion' %}selected{% endif %}>Gestión</option>
+              <option value="tecnico"    {% if form.tipo.value == 'tecnico' %}selected{% endif %}>Técnico</option>
+            </select>
+            {% if form.tipo.errors %}<div class="ferr">{{ form.tipo.errors.0 }}</div>{% endif %}
+          </div>
+          <div class="fg">
+            <label>Archivo PDF {% if not form.instance.pk %}<span class="req">*</span>{% endif %}</label>
+            <input type="file" name="archivo" class="fc" accept=".pdf"
+                   {% if not form.instance.pk %}required{% endif %}>
+            {% if form.instance.pk and form.instance.archivo %}
+              <div class="hint">Archivo actual: <a href="{{ form.instance.archivo.url }}" target="_blank" style="color:var(--verde)">ver PDF</a>. Deja vacío para mantener.</div>
+            {% endif %}
+            {% if form.archivo.errors %}<div class="ferr">{{ form.archivo.errors.0 }}</div>{% endif %}
+          </div>
+        </div>
+
+        <div class="fg">
+          <label>Descripción</label>
+          <textarea name="descripcion" class="fc" rows="3"
+                    placeholder="Descripción breve del contenido...">{{ form.descripcion.value|default:'' }}</textarea>
+        </div>
+
+        <div class="flex gap-20" style="margin-bottom:20px">
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;color:var(--txt2)">
+            <input type="checkbox" name="obligatorio"
+                   {% if form.obligatorio.value %}checked{% endif %}
+                   style="accent-color:var(--verde);width:16px;height:16px">
+            Documento obligatorio
+          </label>
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;color:var(--txt2)">
+            <input type="checkbox" name="activo"
+                   {% if form.activo.value != False %}checked{% endif %}
+                   style="accent-color:var(--verde);width:16px;height:16px">
+            Activo (visible para trabajadores)
+          </label>
+        </div>
+
+        <div class="flex gap-10">
+          <button type="submit" class="btn btn-primary">Guardar documento</button>
+          <a href="{% url 'documentos:lista' %}" class="btn btn-ghost">Cancelar</a>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

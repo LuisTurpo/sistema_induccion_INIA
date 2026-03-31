@@ -1,0 +1,193 @@
+{% extends 'base.html' %}
+{% block title %}{{ titulo }} — LABSAF{% endblock %}
+{% block content %}
+<div style="max-width:640px;margin:0 auto">
+  <div class="page-head">
+    <div>
+      <div class="page-title">{{ titulo }}</div>
+      <div class="page-sub">Configura nivel, cargos y parámetros · MAN-02 / PRO-04 §5.1</div>
+    </div>
+    <a href="{% url 'evaluaciones:lista' %}" class="btn btn-ghost">← Volver</a>
+  </div>
+
+  <form method="post">
+    {% csrf_token %}
+    <div class="card" style="margin-bottom:14px">
+      <div class="card-head"><span class="card-title">Datos generales</span></div>
+      <div class="card-body">
+
+        <div class="fg">
+          <label>Título de la evaluación <span class="req">*</span></label>
+          <input type="text" name="titulo" class="fc {% if form.titulo.errors %}err{% endif %}"
+                 placeholder="Ej: Evaluación ISO/IEC 17025 — Sistema de Gestión"
+                 value="{{ form.titulo.value|default:'' }}" required>
+          {% if form.titulo.errors %}<div class="ferr">{{ form.titulo.errors.0 }}</div>{% endif %}
+        </div>
+
+        <!-- NIVEL MAN-02 -->
+        <div class="fg">
+          <label>Nivel según MAN-02 <span class="req">*</span></label>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:4px" id="nivel-grid">
+            {% for val, label in form.nivel.field.choices %}
+            <label style="display:flex;align-items:flex-start;gap:10px;padding:12px;border:1.5px solid var(--borde2);border-radius:var(--r);cursor:pointer;transition:all .15s;background:var(--bg3)"
+                   class="nivel-opt" id="nivel-opt-{{ val }}">
+              <input type="radio" name="nivel" value="{{ val }}"
+                     {% if form.nivel.value == val or not form.nivel.value and val == 'induccion' %}checked{% endif %}
+                     style="accent-color:var(--verde);margin-top:2px;flex-shrink:0"
+                     onchange="actualizarNivel('{{ val }}')">
+              <div>
+                <div style="font-size:12px;font-weight:700;color:var(--txt)">{{ label }}</div>
+                <div style="font-size:10px;color:var(--txt3);margin-top:2px" id="desc-{{ val }}">
+                  {% if val == 'induccion' %}Todos los cargos sin excepción. Organigrama, política, código de ética.
+                  {% elif val == 'gestion' %}Personal de gestión y acreditación. ISO 17025 avanzado, INACAL-DA.
+                  {% elif val == 'tecnico_general' %}Personal de laboratorio. Métodos de ensayo, validez de resultados.
+                  {% elif val == 'tecnico_especifico' %}Por método acreditado. Especialistas, analistas, técnicos.{% endif %}
+                </div>
+              </div>
+            </label>
+            {% endfor %}
+          </div>
+        </div>
+
+        <div class="grid3">
+          <div class="fg">
+            <label>Nota mínima <span class="req">*</span></label>
+            <input type="number" name="nota_minima" class="fc"
+                   value="{{ form.nota_minima.value|default:'14' }}"
+                   min="0" max="20" step="0.1">
+            <div class="hint">PRO-04: mínimo 14</div>
+          </div>
+          <div class="fg">
+            <label>Intentos máx.</label>
+            <input type="number" name="max_intentos" class="fc"
+                   value="{{ form.max_intentos.value|default:'3' }}"
+                   min="1" max="10">
+            <div class="hint">PRO-04: máximo 3</div>
+          </div>
+          <div class="fg">
+            <label>Tiempo límite (min)</label>
+            <input type="number" name="tiempo_limite" class="fc"
+                   value="{{ form.tiempo_limite.value|default:'' }}"
+                   min="5" placeholder="Sin límite">
+          </div>
+        </div>
+
+        <!-- Tipo (compatibilidad F-52) -->
+        <div class="fg">
+          <label>Tipo (para Excel F-52)</label>
+          <select name="tipo" class="fc">
+            <option value="induccion" {% if form.tipo.value == 'induccion' %}selected{% endif %}>Inducción</option>
+            <option value="gestion"   {% if form.tipo.value == 'gestion'   %}selected{% endif %}>Gestión</option>
+            <option value="tecnico"   {% if form.tipo.value == 'tecnico'   %}selected{% endif %}>Técnico</option>
+          </select>
+          <div class="hint">Determina en qué sección del F-52 aparece la nota.</div>
+        </div>
+
+        <div style="margin-bottom:4px">
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;color:var(--txt2)">
+            <input type="checkbox" name="activa"
+                   {% if form.activa.value != False %}checked{% endif %}
+                   style="accent-color:var(--verde);width:16px;height:16px">
+            Evaluación activa (visible para trabajadores)
+          </label>
+        </div>
+      </div>
+    </div>
+
+    <!-- CARGOS REQUERIDOS -->
+    <div class="card" style="margin-bottom:14px">
+      <div class="card-head">
+        <span class="card-title">Cargos que deben rendir esta evaluación</span>
+        <span class="text-xs text-muted">Según MAN-02</span>
+      </div>
+      <div class="card-body">
+        <div id="cargos-hint" class="alert alert-info" style="margin-bottom:14px;font-size:11px">
+          Si no seleccionas ningún cargo → aplica a <strong>TODOS</strong> los cargos (recomendado para Nivel 1 Inducción General).
+        </div>
+
+        {% if cargos %}
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
+          {% for cargo in cargos %}
+          <label style="display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px solid var(--borde2);border-radius:var(--r);cursor:pointer;font-size:12px;color:var(--txt2);transition:all .15s;background:var(--bg3)"
+                 class="cargo-check-label">
+            <input type="checkbox" name="cargos_requeridos" value="{{ cargo.pk }}"
+                   {% if cargo.pk in cargos_actuales %}checked{% endif %}
+                   style="accent-color:var(--verde);flex-shrink:0"
+                   onchange="actualizarCargos()">
+            {{ cargo.nombre }}
+          </label>
+          {% endfor %}
+        </div>
+        <div style="display:flex;gap:8px;margin-top:10px">
+          <button type="button" class="btn btn-ghost btn-sm" onclick="seleccionarTodos(true)">Seleccionar todos</button>
+          <button type="button" class="btn btn-ghost btn-sm" onclick="seleccionarTodos(false)">Deseleccionar todos</button>
+        </div>
+        {% else %}
+        <div class="alert alert-warning" style="font-size:12px">
+          No hay cargos registrados. Crea los cargos del MAN-02 primero desde
+          <a href="/admin/personal/cargo/add/" style="color:var(--verde)">el panel admin</a>
+          o desde <a href="{% url 'personal:crear' %}" style="color:var(--verde)">registrar trabajador</a>.
+        </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="flex gap-10">
+      <button type="submit" class="btn btn-primary">Guardar evaluación</button>
+      <a href="{% url 'evaluaciones:lista' %}" class="btn btn-ghost">Cancelar</a>
+    </div>
+  </form>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function actualizarNivel(val) {
+  document.querySelectorAll('.nivel-opt').forEach(el => {
+    el.style.borderColor = 'var(--borde2)';
+    el.style.background  = 'var(--bg3)';
+  });
+  const sel = document.getElementById('nivel-opt-' + val);
+  if (sel) {
+    sel.style.borderColor = 'var(--verde)';
+    sel.style.background  = 'var(--verde-lt)';
+  }
+
+  // Sugerencia de cargos según nivel
+  const hint = document.getElementById('cargos-hint');
+  const sugerencias = {
+    'induccion':          'Nivel 1 — Recomendado: dejar vacío para que aplique a TODOS los cargos.',
+    'gestion':            'Nivel 2 — Recomendado: seleccionar Director, Coordinadores, Monitor, Asistente SG, Responsable de Laboratorio.',
+    'tecnico_general':    'Nivel 3 — Recomendado: seleccionar Especialista, Analista, Técnico en Análisis, Asistente Técnico, Auxiliar.',
+    'tecnico_especifico': 'Nivel 4 — Recomendado: seleccionar Especialista de Laboratorio, Analista, Técnico en Análisis.',
+  };
+  if (hint && sugerencias[val]) {
+    hint.textContent = sugerencias[val];
+  }
+}
+
+function actualizarCargos() {
+  const checks = document.querySelectorAll('input[name="cargos_requeridos"]');
+  checks.forEach(cb => {
+    const label = cb.parentElement;
+    label.style.borderColor = cb.checked ? 'var(--verde)' : 'var(--borde2)';
+    label.style.background  = cb.checked ? 'var(--verde-lt)' : 'var(--bg3)';
+    label.style.color       = cb.checked ? 'var(--verde2)' : 'var(--txt2)';
+  });
+}
+
+function seleccionarTodos(estado) {
+  document.querySelectorAll('input[name="cargos_requeridos"]').forEach(cb => {
+    cb.checked = estado;
+  });
+  actualizarCargos();
+}
+
+// Inicializar visual al cargar
+document.addEventListener('DOMContentLoaded', () => {
+  const checked = document.querySelector('input[name="nivel"]:checked');
+  if (checked) actualizarNivel(checked.value);
+  actualizarCargos();
+});
+</script>
+{% endblock %}

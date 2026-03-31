@@ -1,0 +1,60 @@
+{% extends 'base.html' %}
+{% block title %}{{ modulo.titulo }} — LABSAF{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <div class="page-title">{{ modulo.titulo }}</div>
+    <div class="page-sub">{{ modulo.get_tipo_display }}</div>
+  </div>
+  <a href="{% url 'entrenamientos:lista' %}" class="btn btn-ghost">← Volver</a>
+</div>
+
+<div class="grid2" style="align-items:flex-start;gap:20px">
+
+  <div class="card">
+    <div class="card-head"><span class="card-title">Información del módulo</span></div>
+    <div class="card-body">
+      <p class="text-sm text-muted mb-16">
+        {{ modulo.descripcion|default:"Sin descripción." }}
+      </p>
+      <div class="flex items-center justify-between" style="padding:10px 0;border-bottom:1px solid var(--borde)">
+        <span class="text-sm">Estado actual</span>
+        {% if avance.completado %}
+          <span class="badge b-verde">Completado</span>
+        {% else %}
+          <span class="badge b-amarillo">En progreso</span>
+        {% endif %}
+      </div>
+      {% if avance.fecha_inicio %}
+      <div class="flex items-center justify-between" style="padding:10px 0;border-bottom:1px solid var(--borde)">
+        <span class="text-sm text-muted">Fecha inicio</span>
+        <span class="text-sm font-mono">{{ avance.fecha_inicio|date:"d/m/Y" }}</span>
+      </div>
+      {% endif %}
+      {% if avance.fecha_completado %}
+      <div class="flex items-center justify-between" style="padding:10px 0">
+        <span class="text-sm text-muted">Fecha completado</span>
+        <span class="text-sm font-mono text-verde">{{ avance.fecha_completado|date:"d/m/Y" }}</span>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-head"><span class="card-title">Evaluación asociada</span></div>
+    <div class="card-body">
+      {% if modulo.evaluacion %}
+        <div class="alert alert-info mb-16">
+          Este módulo tiene una evaluación: <strong>{{ modulo.evaluacion.titulo }}</strong>
+        </div>
+        <a href="{% url 'evaluaciones:rendir' modulo.evaluacion.pk %}" class="btn btn-primary">
+          Rendir evaluación →
+        </a>
+      {% else %}
+        <p class="text-sm text-muted">Este módulo no tiene evaluación asociada.</p>
+      {% endif %}
+    </div>
+  </div>
+
+</div>
+{% endblock %}

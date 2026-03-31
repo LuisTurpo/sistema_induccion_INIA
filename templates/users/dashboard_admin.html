@@ -1,0 +1,108 @@
+{% extends 'base.html' %}
+{% block title %}Dashboard — LABSAF{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <div class="page-title">Panel de Administración</div>
+    <div class="page-sub">Laboratorio de Suelos, Aguas y Foliares — Sistema PRO-04 v10</div>
+  </div>
+</div>
+
+<div class="stats-grid">
+  <div class="stat c-azul">
+    <div class="stat-ico"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="1.5"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/></svg></div>
+    <div class="stat-label">Total personal</div>
+    <div class="stat-val">{{ total_trabajadores|default:"—" }}</div>
+    <div class="stat-sub">Registrados en el sistema</div>
+  </div>
+  <div class="stat c-amarillo">
+    <div class="stat-ico"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><polyline points="12,6 12,12 16,14"/></svg></div>
+    <div class="stat-label">En proceso</div>
+    <div class="stat-val">{{ en_proceso|default:"—" }}</div>
+    <div class="stat-sub">Inducción activa</div>
+  </div>
+  <div class="stat c-verde">
+    <div class="stat-ico"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="1.5"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22,4 12,14.01 9,11.01"/></svg></div>
+    <div class="stat-label">Autorizados</div>
+    <div class="stat-val">{{ autorizados|default:"—" }}</div>
+    <div class="stat-sub">Proceso completado</div>
+  </div>
+  <div class="stat c-morado">
+    <div class="stat-ico"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="1.5"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14,2 14,8 20,8"/></svg></div>
+    <div class="stat-label">F-52 generados</div>
+    <div class="stat-val">{{ excel_generados|default:"—" }}</div>
+    <div class="stat-sub">Excel disponibles</div>
+  </div>
+</div>
+
+<div class="tw-head">
+  <div>
+    <div class="font-600">Trabajadores registrados</div>
+    <div class="text-xs text-muted mt-8" style="margin-top:3px">Estado actual del proceso de inducción</div>
+  </div>
+  <div class="flex gap-8">
+    <a href="{% url 'personal:crear' %}" class="btn btn-primary">+ Nuevo trabajador</a>
+    <a href="{% url 'personal:lista' %}" class="btn btn-ghost">Ver todos</a>
+  </div>
+</div>
+
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr>
+        <th>Trabajador</th>
+        <th>Cargo</th>
+        <th>Área</th>
+        <th>Estado</th>
+        <th>Progreso</th>
+        <th>Acciones</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for t in trabajadores_recientes %}
+      <tr>
+        <td>
+          <div class="flex items-center gap-8">
+            <div class="av av-{% cycle 'a' 'b' 'c' 'd' %}">
+              {{ t.usuario.first_name|slice:":1" }}{{ t.usuario.last_name|slice:":1" }}
+            </div>
+            <div>
+              <div class="td-name">{{ t.usuario.get_full_name }}</div>
+              <div class="td-sub">{{ t.usuario.username }}</div>
+            </div>
+          </div>
+        </td>
+        <td>{{ t.cargo }}</td>
+        <td class="text-muted">{{ t.area }}</td>
+        <td>
+          {% if t.estado == 'activo' %}
+            <span class="badge b-verde">Activo</span>
+          {% elif t.estado == 'proceso' %}
+            <span class="badge b-amarillo">En proceso</span>
+          {% else %}
+            <span class="badge b-gris">Inactivo</span>
+          {% endif %}
+        </td>
+        <td>
+          <div class="prog">
+            <div class="prog-bar">
+              <div class="prog-fill {% if t.estado == 'activo' %}pf-verde{% else %}pf-azul{% endif %}"
+                   style="width: {% if t.estado == 'activo' %}100{% else %}40{% endif %}%"></div>
+            </div>
+            <span class="prog-pct">{% if t.estado == 'activo' %}100{% else %}—{% endif %}%</span>
+          </div>
+        </td>
+        <td>
+          <div class="flex gap-6">
+            <a href="{% url 'personal:detalle' t.pk %}" class="btn btn-ghost btn-sm">Ver</a>
+            <a href="{% url 'reportes:generar' t.pk %}" class="btn btn-ghost btn-sm text-verde">F-52</a>
+          </div>
+        </td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="6" class="td-empty">No hay trabajadores registrados. <a href="{% url 'personal:crear' %}" class="text-verde">Registra el primero →</a></td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

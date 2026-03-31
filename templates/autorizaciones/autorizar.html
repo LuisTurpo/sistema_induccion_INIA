@@ -1,0 +1,135 @@
+{% extends 'base.html' %}
+{% block title %}Autorizar — {{ trabajador.usuario.get_full_name }}{% endblock %}
+{% block content %}
+<div style="max-width:720px">
+  <div class="page-head">
+    <div>
+      <div class="page-title">Autorización — {{ trabajador.usuario.get_full_name }}</div>
+      <div class="page-sub">{{ trabajador.cargo }} · {{ trabajador.area }} · PRO-04 §5.3</div>
+    </div>
+    <a href="{% url 'autorizaciones:lista' %}" class="btn btn-ghost">← Volver</a>
+  </div>
+
+  <!-- Checklist de requisitos -->
+  <div class="card" style="margin-bottom:16px">
+    <div class="card-head"><span class="card-title">Requisitos para autorización — PRO-04</span></div>
+    <div>
+      <div class="flex items-center justify-between" style="padding:11px 16px;border-bottom:1px solid var(--borde)">
+        <div>
+          <div class="text-sm font-600">1. Documentos de inducción leídos</div>
+          <div class="text-xs text-muted">Todos los documentos obligatorios</div>
+        </div>
+        {% if requisitos.docs_ok %}
+          <span class="badge b-verde">✓ Cumple</span>
+        {% else %}
+          <span class="badge b-rojo">✗ Pendiente ({{ requisitos.docs_leidos }}/{{ requisitos.docs_total }})</span>
+        {% endif %}
+      </div>
+      <div class="flex items-center justify-between" style="padding:11px 16px;border-bottom:1px solid var(--borde)">
+        <div>
+          <div class="text-sm font-600">2. Firma del Código de Ética D-03</div>
+          <div class="text-xs text-muted">Declaración jurada firmada</div>
+        </div>
+        {% if requisitos.firma_ok %}
+          <span class="badge b-verde">✓ Firmado {{ trabajador.firma_etica.fecha_firma|date:"d/m/Y" }}</span>
+        {% else %}
+          <span class="badge b-rojo">✗ Sin firmar</span>
+        {% endif %}
+      </div>
+      <div class="flex items-center justify-between" style="padding:11px 16px;border-bottom:1px solid var(--borde)">
+        <div>
+          <div class="text-sm font-600">3. Evaluaciones aprobadas</div>
+          <div class="text-xs text-muted">Mínimo las evaluaciones de su nivel</div>
+        </div>
+        {% if requisitos.eval_ok %}
+          <span class="badge b-verde">✓ Aprobado</span>
+        {% else %}
+          <span class="badge b-amarillo">Parcial ({{ requisitos.evals_aprobadas }}/{{ requisitos.evals_total }})</span>
+        {% endif %}
+      </div>
+      <div class="flex items-center justify-between" style="padding:11px 16px">
+        <div>
+          <div class="text-sm font-600">4. Supervisión aprobada</div>
+          <div class="text-xs text-muted">Al menos una revisión de supervisión aprobada</div>
+        </div>
+        {% if requisitos.supervision_ok %}
+          <span class="badge b-verde">✓ Supervisado</span>
+        {% else %}
+          <span class="badge b-rojo">✗ Sin supervisión aprobada</span>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  {% if not requisitos.docs_ok or not requisitos.firma_ok %}
+  <div class="alert alert-warning" style="margin-bottom:16px">
+    El trabajador aún no cumple todos los requisitos mínimos. Puedes autorizar igualmente pero quedará registrado el estado actual.
+  </div>
+  {% endif %}
+
+  <!-- Formulario de autorización -->
+  <div class="card">
+    <div class="card-head" style="background:var(--verde-lt)">
+      <span class="card-title">Resolución de autorización</span>
+    </div>
+    <div class="card-body">
+      <form method="post">
+        {% csrf_token %}
+        <div class="fg">
+          <label>Decisión <span class="req">*</span></label>
+          <div class="estado-grid">
+            <div class="est-card {% if autorizacion.estado == 'autorizado' or not autorizacion %}sel{% endif %}"
+                 data-est="autorizado" onclick="selEst(this)">
+              <div class="est-name" style="color:var(--verde)">✓ Autorizado</div>
+              <div class="est-desc">Competente para ejecutar ensayos</div>
+            </div>
+            <div class="est-card {% if autorizacion.estado == 'pendiente' %}sel{% endif %}"
+                 data-est="pendiente" onclick="selEst(this)">
+              <div class="est-name" style="color:var(--amarillo)">⏳ Pendiente</div>
+              <div class="est-desc">En evaluación, aún no resuelto</div>
+            </div>
+            <div class="est-card {% if autorizacion.estado == 'rechazado' %}sel{% endif %}"
+                 data-est="rechazado" onclick="selEst(this)">
+              <div class="est-name" style="color:var(--rojo)">✗ No autorizado</div>
+              <div class="est-desc">No cumple requisitos mínimos</div>
+            </div>
+          </div>
+          <input type="hidden" name="estado" id="estado-input"
+                 value="{{ autorizacion.estado|default:'autorizado' }}">
+        </div>
+
+        <div class="fg">
+          <label>Observaciones</label>
+          <textarea name="observaciones" class="fc" rows="3"
+                    placeholder="Condiciones de la autorización, restricciones, observaciones...">{{ autorizacion.observaciones|default:'' }}</textarea>
+        </div>
+
+        <div class="alert alert-info" style="margin-bottom:16px;font-size:11px">
+          Al guardar la autorización, se registrará la fecha y hora actual, y el nombre del administrador que autoriza.
+          Esta información aparecerá en el Excel F-52.
+        </div>
+
+        <div class="flex gap-10">
+          <button type="submit" class="btn btn-primary">Guardar autorización</button>
+          <a href="{% url 'autorizaciones:lista' %}" class="btn btn-ghost">Cancelar</a>
+          {% if autorizacion and autorizacion.estado == 'autorizado' %}
+            <a href="{% url 'reportes:generar' trabajador.pk %}"
+               class="btn btn-ghost text-verde" style="margin-left:auto">
+              Generar Excel F-52 →
+            </a>
+          {% endif %}
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}
+{% block extra_js %}
+<script>
+function selEst(el) {
+  document.querySelectorAll('.est-card').forEach(c => c.classList.remove('sel'));
+  el.classList.add('sel');
+  document.getElementById('estado-input').value = el.dataset.est;
+}
+</script>
+{% endblock %}

@@ -1,0 +1,11 @@
+{% extends 'base.html' %}
+{% block title %}Panel Supervisor — LABSAF{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <div class="page-title">Panel del Supervisor</div>
+    <div class="page-subtitle">Revisión y supervisión del personal en proceso de inducción</div>
+  </div>
+</div>
+<a href="{% url 'supervision:lista' %}" class="btn btn-primary">Ver trabajadores a supervisar →</a>
+{% endblock %}

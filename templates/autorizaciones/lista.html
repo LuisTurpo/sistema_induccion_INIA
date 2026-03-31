@@ -1,0 +1,84 @@
+{% extends 'base.html' %}
+{% block title %}Autorizaciones — LABSAF{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <div class="page-title">Autorizaciones Finales</div>
+    <div class="page-sub">Autorización de competencia técnica del personal · PRO-04 §5.3</div>
+  </div>
+</div>
+
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr>
+        <th>Trabajador</th>
+        <th>Cargo</th>
+        <th>Supervisión</th>
+        <th>Estado autorización</th>
+        <th>Autorizado por</th>
+        <th>Fecha</th>
+        <th>Acciones</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for item in trabajadores %}
+      <tr>
+        <td>
+          <div class="flex items-center gap-8">
+            <div class="av av-{% cycle 'a' 'b' 'c' 'd' %}">
+              {{ item.trabajador.usuario.first_name|slice:":1" }}{{ item.trabajador.usuario.last_name|slice:":1" }}
+            </div>
+            <div>
+              <div class="td-name">{{ item.trabajador.usuario.get_full_name }}</div>
+              <div class="td-sub">{{ item.trabajador.usuario.username }}</div>
+            </div>
+          </div>
+        </td>
+        <td class="text-muted">{{ item.trabajador.cargo }}</td>
+        <td>
+          {% if item.supervision_ok %}
+            <span class="badge b-verde">✓ Aprobado</span>
+          {% else %}
+            <span class="badge b-gris">Pendiente</span>
+          {% endif %}
+        </td>
+        <td>
+          {% if item.autorizacion %}
+            {% if item.autorizacion.estado == 'autorizado' %}
+              <span class="badge b-verde">✓ Autorizado</span>
+            {% elif item.autorizacion.estado == 'rechazado' %}
+              <span class="badge b-rojo">Rechazado</span>
+            {% else %}
+              <span class="badge b-amarillo">Pendiente</span>
+            {% endif %}
+          {% else %}
+            <span class="badge b-gris">Sin solicitud</span>
+          {% endif %}
+        </td>
+        <td class="text-muted text-xs">
+          {{ item.autorizacion.autorizado_por.get_full_name|default:"—" }}
+        </td>
+        <td class="text-muted text-xs font-mono">
+          {{ item.autorizacion.fecha_resolucion|date:"d/m/Y"|default:"—" }}
+        </td>
+        <td>
+          <div class="flex gap-6">
+            <a href="{% url 'autorizaciones:autorizar' item.trabajador.pk %}"
+               class="btn btn-primary btn-sm">
+              {% if item.autorizacion %}Ver / Actualizar{% else %}Autorizar{% endif %}
+            </a>
+            {% if item.autorizacion and item.autorizacion.estado == 'autorizado' %}
+              <a href="{% url 'reportes:generar' item.trabajador.pk %}"
+                 class="btn btn-ghost btn-sm text-verde">F-52</a>
+            {% endif %}
+          </div>
+        </td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="7" class="td-empty">No hay trabajadores registrados.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

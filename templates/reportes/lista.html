@@ -1,0 +1,91 @@
+{% extends 'base.html' %}
+{% block title %}Reportes F-52 — LABSAF{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <div class="page-title">Reportes Excel F-52</div>
+    <div class="page-sub">Ficha de Entrenamiento del Personal · Formato F-52 / PRO-04</div>
+  </div>
+</div>
+
+<div class="alert alert-info" style="margin-bottom:16px">
+  El Excel F-52 se genera con los datos reales del trabajador: evaluaciones aprobadas,
+  supervisiones, fechas y notas. Solo se incluyen notas de intentos aprobados.
+</div>
+
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr>
+        <th>Trabajador</th>
+        <th>Cargo</th>
+        <th>Evaluaciones</th>
+        <th>Supervisión</th>
+        <th>Autorización</th>
+        <th>F-52</th>
+        <th>Acciones</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for item in trabajadores %}
+      <tr>
+        <td>
+          <div class="flex items-center gap-8">
+            <div class="av av-{% cycle 'a' 'b' 'c' 'd' %}">
+              {{ item.trabajador.usuario.first_name|slice:":1" }}{{ item.trabajador.usuario.last_name|slice:":1" }}
+            </div>
+            <div>
+              <div class="td-name">{{ item.trabajador.usuario.get_full_name }}</div>
+              <div class="td-sub">{{ item.trabajador.usuario.username }}</div>
+            </div>
+          </div>
+        </td>
+        <td class="text-muted">{{ item.trabajador.cargo }}</td>
+        <td>
+          {% if item.evals_aprobadas > 0 %}
+            <span class="badge b-verde">{{ item.evals_aprobadas }} aprobada(s)</span>
+          {% else %}
+            <span class="badge b-gris">Sin aprobar</span>
+          {% endif %}
+        </td>
+        <td>
+          {% if item.supervision_ok %}
+            <span class="badge b-verde">✓</span>
+          {% else %}
+            <span class="badge b-gris">Pendiente</span>
+          {% endif %}
+        </td>
+        <td>
+          {% if item.autorizado %}
+            <span class="badge b-verde">✓ Autorizado</span>
+          {% else %}
+            <span class="badge b-gris">Pendiente</span>
+          {% endif %}
+        </td>
+        <td>
+          {% if item.excel_existe %}
+            <span class="badge b-verde">Generado</span>
+          {% else %}
+            <span class="badge b-gris">Sin generar</span>
+          {% endif %}
+        </td>
+        <td>
+          <div class="flex gap-6">
+            <a href="{% url 'reportes:generar' item.trabajador.pk %}"
+               class="btn btn-primary btn-sm">
+              {% if item.excel_existe %}Regenerar{% else %}Generar F-52{% endif %}
+            </a>
+            {% if item.excel_existe %}
+              <a href="{% url 'reportes:descargar' item.trabajador.pk %}"
+                 class="btn btn-ghost btn-sm text-verde">↓ Descargar</a>
+            {% endif %}
+          </div>
+        </td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="7" class="td-empty">No hay trabajadores registrados.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

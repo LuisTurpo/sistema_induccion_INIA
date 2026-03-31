@@ -1,0 +1,261 @@
+{% extends 'base.html' %}
+{% block title %}{{ doc.titulo }} — LABSAF{% endblock %}
+{% block extra_css %}
+<style>
+#pdf-container {
+  width: 100%;
+  height: 76vh;
+  overflow-y: auto;
+  background: #525659;
+  border-radius: var(--r2);
+  border: 1px solid var(--borde);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 20px 0;
+  gap: 12px;
+}
+#pdf-container canvas {
+  display: block;
+  box-shadow: 0 2px 12px rgba(0,0,0,.4);
+  max-width: 100%;
+}
+.pdf-nav {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--bg3);
+  border: 1px solid var(--borde);
+  border-radius: var(--r);
+  padding: 8px 16px;
+  margin-bottom: 10px;
+}
+.pdf-nav button {
+  background: var(--bg4);
+  border: 1px solid var(--borde2);
+  color: var(--txt2);
+  border-radius: var(--r);
+  padding: 5px 12px;
+  font-size: 12px;
+  cursor: pointer;
+  font-family: var(--font);
+  transition: all .15s;
+}
+.pdf-nav button:hover:not(:disabled) {
+  background: var(--bg5);
+  color: var(--txt);
+}
+.pdf-nav button:disabled { opacity: .3; cursor: not-allowed; }
+#page-info { font-size: 12px; color: var(--txt2); font-family: var(--mono); }
+#loading-msg {
+  color: var(--txt3);
+  font-size: 13px;
+  text-align: center;
+  padding: 60px 20px;
+}
+</style>
+{% endblock %}
+{% block content %}
+
+<div class="page-head">
+  <div>
+    <div class="page-title">{{ doc.titulo }}</div>
+    <div class="page-sub">{{ doc.get_tipo_display }} · Código: {{ doc.tipo|upper }}</div>
+  </div>
+  <a href="{% url 'induccion:mis_documentos' %}" class="btn btn-ghost">← Volver</a>
+</div>
+
+<!-- Estado de lectura -->
+<div class="card" style="margin-bottom:12px">
+  <div class="card-body" style="padding:11px 16px">
+    <div class="flex items-center justify-between flex-wrap gap-12">
+      <div class="flex items-center gap-10">
+        {% if doc.obligatorio %}
+          <span class="badge b-rojo">Obligatorio</span>
+        {% endif %}
+        <span class="text-xs text-muted" id="instruccion-txt">
+          {% if lectura.leido %}Documento ya leído.{% else %}Lee el documento completo y marca como leído.{% endif %}
+        </span>
+      </div>
+      <div class="flex items-center gap-10">
+        <div class="prog-bar" style="width:140px">
+          <div class="prog-fill pf-verde" id="barra" style="width:{{ lectura.porcentaje }}%"></div>
+        </div>
+        <span class="text-xs font-mono" id="pct-txt">{{ lectura.porcentaje }}%</span>
+        {% if lectura.leido %}
+          <span class="badge b-verde">✓ Leído el {{ lectura.fecha_leido|date:"d/m/Y" }}</span>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Navegación páginas -->
+<div class="pdf-nav">
+  <button id="btn-prev" onclick="cambiarPagina(-1)" disabled>← Anterior</button>
+  <span id="page-info">Cargando...</span>
+  <button id="btn-next" onclick="cambiarPagina(1)" disabled>Siguiente →</button>
+  <div style="margin-left:auto;display:flex;align-items:center;gap:8px">
+    <button onclick="zoom(-0.2)">A−</button>
+    <button onclick="zoom(0.2)">A+</button>
+    <a href="{{ doc.archivo.url }}" target="_blank" class="btn btn-ghost btn-sm">↗ Nueva pestaña</a>
+  </div>
+</div>
+
+<!-- Visor PDF con PDF.js -->
+<div id="pdf-container">
+  <div id="loading-msg">
+    <div style="font-size:28px;margin-bottom:12px">📄</div>
+    Cargando documento...
+  </div>
+</div>
+
+<!-- Barra inferior -->
+<div class="card" style="margin-top:12px">
+  <div class="card-body flex items-center flex-wrap gap-12" style="padding:11px 16px">
+    {% if lectura.leido %}
+      <span class="badge b-verde" style="font-size:13px;padding:5px 14px">✓ Leído el {{ lectura.fecha_leido|date:"d/m/Y H:i" }}</span>
+    {% else %}
+      <button class="btn btn-primary" id="btn-marcar" onclick="marcarLeido()">
+        ✓ Marcar como leído
+      </button>
+      <span class="text-xs text-muted" id="estado-txt">Lee el documento y haz clic cuando termines.</span>
+    {% endif %}
+    <a href="{{ doc.archivo.url }}" target="_blank" class="btn btn-ghost btn-sm" style="margin-left:auto">
+      Abrir PDF en nueva pestaña ↗
+    </a>
+  </div>
+</div>
+
+{% endblock %}
+{% block extra_js %}
+<!-- PDF.js desde CDN oficial -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script>
+// Configurar worker de PDF.js
+pdfjsLib.GlobalWorkerOptions.workerSrc =
+  'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+const PDF_URL  = '{{ doc.archivo.url }}';
+const DOC_PK   = {{ doc.pk }};
+const YA_LEIDO = {{ lectura.leido|yesno:"true,false" }};
+const CSRF     = '{{ csrf_token }}';
+
+let pdfDoc     = null;
+let paginaActual = 1;
+let totalPaginas = 0;
+let escala     = 1.4;
+let pct        = {{ lectura.porcentaje }};
+let renderizando = false;
+
+// ── Cargar PDF ────────────────────────────────────────────────────────────────
+pdfjsLib.getDocument(PDF_URL).promise.then(pdf => {
+  pdfDoc       = pdf;
+  totalPaginas = pdf.numPages;
+  document.getElementById('loading-msg').style.display = 'none';
+  renderPagina(1);
+}).catch(err => {
+  document.getElementById('loading-msg').innerHTML =
+    '<div style="color:var(--rojo)">Error al cargar el PDF.<br><small>' + err.message + '</small></div>' +
+    '<a href="' + PDF_URL + '" target="_blank" class="btn btn-primary" style="margin-top:16px">Abrir en nueva pestaña →</a>';
+});
+
+// ── Renderizar página ─────────────────────────────────────────────────────────
+function renderPagina(num) {
+  if (renderizando || !pdfDoc) return;
+  renderizando = true;
+  pdfDoc.getPage(num).then(page => {
+    const viewport = page.getViewport({ scale: escala });
+    const canvas   = document.createElement('canvas');
+    canvas.height  = viewport.height;
+    canvas.width   = viewport.width;
+    const ctx = canvas.getContext('2d');
+
+    // Limpiar container
+    const container = document.getElementById('pdf-container');
+    container.innerHTML = '';
+    container.appendChild(canvas);
+
+    page.render({ canvasContext: ctx, viewport }).promise.then(() => {
+      renderizando    = false;
+      paginaActual    = num;
+      actualizarNav();
+      // Scroll al inicio
+      container.scrollTop = 0;
+
+      // Actualizar progreso
+      const progreso = Math.round((num / totalPaginas) * 100);
+      if (!YA_LEIDO && progreso > pct) {
+        pct = progreso;
+        enviarPorcentaje(pct);
+      }
+    });
+  });
+}
+
+function actualizarNav() {
+  document.getElementById('page-info').textContent =
+    `Página ${paginaActual} de ${totalPaginas}`;
+  document.getElementById('btn-prev').disabled = paginaActual <= 1;
+  document.getElementById('btn-next').disabled = paginaActual >= totalPaginas;
+}
+
+function cambiarPagina(delta) {
+  const nueva = paginaActual + delta;
+  if (nueva >= 1 && nueva <= totalPaginas) renderPagina(nueva);
+}
+
+function zoom(delta) {
+  escala = Math.max(0.6, Math.min(2.5, escala + delta));
+  renderPagina(paginaActual);
+}
+
+// ── Progreso ──────────────────────────────────────────────────────────────────
+function actualizarBarraPct(p) {
+  const b = document.getElementById('barra');
+  const t = document.getElementById('pct-txt');
+  if (b) b.style.width = p + '%';
+  if (t) t.textContent = p + '%';
+}
+
+function enviarPorcentaje(p) {
+  fetch(`/induccion/doc/${DOC_PK}/porcentaje/`, {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRFToken': CSRF },
+    body:    `porcentaje=${p}`
+  }).then(r => r.json()).then(data => {
+    actualizarBarraPct(data.porcentaje);
+  }).catch(() => {});
+}
+
+// ── Marcar como leído ─────────────────────────────────────────────────────────
+function marcarLeido() {
+  const btn = document.getElementById('btn-marcar');
+  if (!btn) return;
+  btn.disabled    = true;
+  btn.textContent = 'Registrando...';
+  fetch(`/induccion/doc/${DOC_PK}/marcar/`, {
+    method:  'POST',
+    headers: { 'X-CSRFToken': CSRF }
+  }).then(r => r.json()).then(() => {
+    enviarPorcentaje(100);
+    btn.textContent      = '✓ Marcado como leído';
+    btn.style.background = '#15803d';
+    const txt = document.getElementById('estado-txt');
+    if (txt) txt.textContent = 'Lectura registrada correctamente.';
+    const inst = document.getElementById('instruccion-txt');
+    if (inst) inst.textContent = 'Documento ya leído.';
+    setTimeout(() => location.reload(), 1200);
+  }).catch(() => {});
+}
+
+// Progreso automático por tiempo (cada 8s)
+if (!YA_LEIDO) {
+  setInterval(() => {
+    if (pct >= 100) return;
+    pct = Math.min(pct + 10, 100);
+    enviarPorcentaje(pct);
+  }, 8000);
+}
+</script>
+{% endblock %}

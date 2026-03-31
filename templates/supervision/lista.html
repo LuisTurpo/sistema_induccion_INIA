@@ -1,0 +1,110 @@
+{% extends 'base.html' %}
+{% block title %}Supervisión — LABSAF{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <div class="page-title">Supervisión de Personal</div>
+    <div class="page-sub">Revisión del proceso de inducción · PRO-04 §5.2</div>
+  </div>
+</div>
+
+<div class="flex gap-10 mb-16" style="flex-wrap:wrap;margin-bottom:14px">
+  <div class="search" style="flex:1;min-width:200px">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--txt3)" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+    <input type="text" placeholder="Buscar trabajador..." id="q" oninput="filtrar()">
+  </div>
+  <select class="fc" style="width:160px" id="filtro-estado" onchange="filtrar()">
+    <option value="">Todos los estados</option>
+    <option value="pendiente">Pendiente</option>
+    <option value="aprobado">Aprobado</option>
+    <option value="observado">Con observaciones</option>
+    <option value="rechazado">Rechazado</option>
+  </select>
+</div>
+
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr>
+        <th>Trabajador</th>
+        <th>Cargo</th>
+        <th>Documentos</th>
+        <th>Evaluaciones</th>
+        <th>Estado supervisión</th>
+        <th>Última revisión</th>
+        <th>Acciones</th>
+      </tr>
+    </thead>
+    <tbody id="tbody">
+      {% for item in trabajadores %}
+      <tr data-nombre="{{ item.trabajador.usuario.get_full_name|lower }}"
+          data-estado="{{ item.estado }}">
+        <td>
+          <div class="flex items-center gap-8">
+            <div class="av av-{% cycle 'a' 'b' 'c' 'd' %}">
+              {{ item.trabajador.usuario.first_name|slice:":1" }}{{ item.trabajador.usuario.last_name|slice:":1" }}
+            </div>
+            <div>
+              <div class="td-name">{{ item.trabajador.usuario.get_full_name }}</div>
+              <div class="td-sub">{{ item.trabajador.usuario.username }}</div>
+            </div>
+          </div>
+        </td>
+        <td class="text-muted">{{ item.trabajador.cargo }}</td>
+        <td>
+          {% if item.docs_ok %}
+            <span class="badge b-verde">✓ Completo</span>
+          {% else %}
+            <span class="badge b-amarillo">{{ item.docs_leidos }}/{{ item.docs_total }}</span>
+          {% endif %}
+        </td>
+        <td>
+          {% if item.eval_ok %}
+            <span class="badge b-verde">✓ Aprobado</span>
+          {% elif item.eval_intentos > 0 %}
+            <span class="badge b-amarillo">En proceso</span>
+          {% else %}
+            <span class="badge b-gris">Sin rendir</span>
+          {% endif %}
+        </td>
+        <td>
+          {% if item.estado == 'aprobado' %}
+            <span class="badge b-verde">✓ Aprobado</span>
+          {% elif item.estado == 'observado' %}
+            <span class="badge b-amarillo">Con observaciones</span>
+          {% elif item.estado == 'rechazado' %}
+            <span class="badge b-rojo">Rechazado</span>
+          {% else %}
+            <span class="badge b-gris">Pendiente</span>
+          {% endif %}
+        </td>
+        <td class="text-muted text-xs font-mono">
+          {{ item.ultima_revision|date:"d/m/Y"|default:"—" }}
+        </td>
+        <td>
+          <a href="{% url 'supervision:revisar' item.trabajador.pk %}"
+             class="btn btn-primary btn-sm">
+            {% if item.estado == 'pendiente' %}Revisar{% else %}Ver / Actualizar{% endif %}
+          </a>
+        </td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="7" class="td-empty">No hay trabajadores registrados aún.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}
+{% block extra_js %}
+<script>
+function filtrar() {
+  const q      = document.getElementById('q').value.toLowerCase();
+  const estado = document.getElementById('filtro-estado').value;
+  document.querySelectorAll('#tbody tr').forEach(tr => {
+    const mQ = !q      || tr.dataset.nombre?.includes(q);
+    const mE = !estado || tr.dataset.estado === estado;
+    tr.style.display = mQ && mE ? '' : 'none';
+  });
+}
+</script>
+{% endblock %}

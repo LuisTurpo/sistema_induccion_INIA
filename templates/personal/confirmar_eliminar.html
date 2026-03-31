@@ -1,0 +1,26 @@
+{% extends 'base.html' %}
+{% block title %}Eliminar trabajador — LABSAF{% endblock %}
+{% block content %}
+<div style="max-width:500px;margin:0 auto">
+  <div class="card" style="border-top:3px solid var(--rojo)">
+    <div class="card-header">
+      <span class="card-title">Confirmar eliminación</span>
+    </div>
+    <div class="card-body">
+      <p style="font-size:14px;margin-bottom:16px">
+        ¿Estás seguro que deseas eliminar al trabajador
+        <strong>{{ trabajador.usuario.get_full_name }}</strong>?
+      </p>
+      <div class="alert alert-error" style="margin-bottom:16px;font-size:13px">
+        Esta acción eliminará también su cuenta de usuario, historial de evaluaciones,
+        lecturas de documentos y firma. No se puede deshacer.
+      </div>
+      <form method="post" class="d-flex gap-12">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-danger">Sí, eliminar</button>
+        <a href="{% url 'personal:detalle' trabajador.pk %}" class="btn btn-secondary">Cancelar</a>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

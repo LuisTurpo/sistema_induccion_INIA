@@ -1,0 +1,138 @@
+{% extends 'base.html' %}
+{% block title %}Supervisar — {{ trabajador.usuario.get_full_name }}{% endblock %}
+{% block content %}
+<div style="max-width:760px">
+  <div class="page-head">
+    <div>
+      <div class="page-title">Supervisar — {{ trabajador.usuario.get_full_name }}</div>
+      <div class="page-sub">{{ trabajador.cargo }} · {{ trabajador.area }} · PRO-04 §5.2</div>
+    </div>
+    <a href="{% url 'supervision:lista' %}" class="btn btn-ghost">← Volver</a>
+  </div>
+
+  <!-- Resumen del trabajador -->
+  <div class="grid2" style="gap:14px;margin-bottom:16px">
+    <div class="card">
+      <div class="card-head"><span class="card-title">Estado de inducción</span></div>
+      <div>
+        <div class="flex items-center justify-between" style="padding:10px 16px;border-bottom:1px solid var(--borde)">
+          <span class="text-sm">Documentos leídos</span>
+          {% if docs_ok %}<span class="badge b-verde">✓ Completo</span>
+          {% else %}<span class="badge b-amarillo">{{ docs_leidos }}/{{ docs_total }}</span>{% endif %}
+        </div>
+        <div class="flex items-center justify-between" style="padding:10px 16px;border-bottom:1px solid var(--borde)">
+          <span class="text-sm">Firma D-03</span>
+          {% if firma_ok %}<span class="badge b-verde">✓ Firmado</span>
+          {% else %}<span class="badge b-gris">Pendiente</span>{% endif %}
+        </div>
+        <div class="flex items-center justify-between" style="padding:10px 16px">
+          <span class="text-sm">Evaluaciones</span>
+          {% if eval_ok %}<span class="badge b-verde">✓ Aprobado</span>
+          {% elif eval_intentos > 0 %}<span class="badge b-amarillo">En proceso</span>
+          {% else %}<span class="badge b-gris">Sin rendir</span>{% endif %}
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><span class="card-title">Historial de revisiones</span></div>
+      <div style="max-height:150px;overflow-y:auto">
+        {% for rev in revisiones %}
+        <div style="padding:10px 16px;border-bottom:1px solid var(--borde);font-size:12px">
+          <div class="flex items-center justify-between">
+            <span class="font-mono text-xs">{{ rev.fecha|date:"d/m/Y H:i" }}</span>
+            {% if rev.estado == 'aprobado' %}<span class="badge b-verde">Aprobado</span>
+            {% elif rev.estado == 'observado' %}<span class="badge b-amarillo">Observado</span>
+            {% elif rev.estado == 'rechazado' %}<span class="badge b-rojo">Rechazado</span>
+            {% else %}<span class="badge b-gris">Pendiente</span>{% endif %}
+          </div>
+          {% if rev.comentario %}
+            <div class="text-muted" style="margin-top:4px">{{ rev.comentario }}</div>
+          {% endif %}
+        </div>
+        {% empty %}
+        <div style="padding:20px;text-align:center;color:var(--txt3);font-size:12px">Sin revisiones previas</div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  <!-- Evaluaciones rendidas -->
+  {% if intentos %}
+  <div class="table-wrap" style="margin-bottom:16px">
+    <div style="padding:12px 16px;border-bottom:1px solid var(--borde)">
+      <span class="card-title">Evaluaciones rendidas</span>
+    </div>
+    <table>
+      <thead><tr><th>Evaluación</th><th>Nivel</th><th>Intento</th><th>Nota</th><th>Estado</th><th>Fecha</th></tr></thead>
+      <tbody>
+        {% for intento in intentos %}
+        <tr>
+          <td><span class="td-name">{{ intento.evaluacion.titulo }}</span></td>
+          <td><span class="badge b-azul text-xs">{{ intento.evaluacion.get_nivel_display }}</span></td>
+          <td class="font-mono">{{ intento.numero_intento }}</td>
+          <td><strong class="font-mono text-verde">{{ intento.puntuacion }}</strong>/20</td>
+          <td>{% if intento.aprobado %}<span class="badge b-verde">✓ Aprobado</span>
+              {% else %}<span class="badge b-rojo">Desaprobado</span>{% endif %}</td>
+          <td class="text-xs text-muted font-mono">{{ intento.fecha_fin|date:"d/m/Y"|default:"—" }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+
+  <!-- Formulario de supervisión -->
+  <div class="card">
+    <div class="card-head" style="background:var(--verde-lt)">
+      <span class="card-title">Registrar revisión de supervisión</span>
+    </div>
+    <div class="card-body">
+      <form method="post">
+        {% csrf_token %}
+        <div class="fg">
+          <label>Estado de la supervisión <span class="req">*</span></label>
+          <div class="estado-grid">
+            <div class="est-card {% if revision.estado == 'aprobado' %}sel{% endif %}"
+                 data-est="aprobado" onclick="selEst(this)">
+              <div class="est-name" style="color:var(--verde)">✓ Aprobado</div>
+              <div class="est-desc">El trabajador cumple con los requisitos</div>
+            </div>
+            <div class="est-card {% if revision.estado == 'observado' %}sel{% endif %}"
+                 data-est="observado" onclick="selEst(this)">
+              <div class="est-name" style="color:var(--amarillo)">⚠ Con observaciones</div>
+              <div class="est-desc">Necesita correcciones menores</div>
+            </div>
+            <div class="est-card {% if revision.estado == 'rechazado' %}sel{% endif %}"
+                 data-est="rechazado" onclick="selEst(this)">
+              <div class="est-name" style="color:var(--rojo)">✗ Rechazado</div>
+              <div class="est-desc">No cumple con los requisitos</div>
+            </div>
+          </div>
+          <input type="hidden" name="estado" id="estado-input"
+                 value="{{ revision.estado|default:'aprobado' }}">
+        </div>
+        <div class="fg">
+          <label>Comentarios / Observaciones</label>
+          <textarea name="comentario" class="fc" rows="4"
+                    placeholder="Describe las observaciones, áreas de mejora o motivo de aprobación/rechazo...">{{ revision.comentario|default:'' }}</textarea>
+          <div class="hint">Este comentario quedará registrado en el historial y se mostrará en el F-52.</div>
+        </div>
+        <div class="flex gap-10">
+          <button type="submit" class="btn btn-primary">Guardar revisión</button>
+          <a href="{% url 'supervision:lista' %}" class="btn btn-ghost">Cancelar</a>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}
+{% block extra_js %}
+<script>
+function selEst(el) {
+  document.querySelectorAll('.est-card').forEach(c => c.classList.remove('sel'));
+  el.classList.add('sel');
+  document.getElementById('estado-input').value = el.dataset.est;
+}
+</script>
+{% endblock %}

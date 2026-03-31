@@ -1,0 +1,65 @@
+{% extends 'base.html' %}
+{% block title %}Entrenamientos — LABSAF{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <div class="page-title">Módulos de Entrenamiento</div>
+    <div class="page-sub">Sistema de gestión y entrenamiento técnico · PRO-04 §5.2</div>
+  </div>
+</div>
+
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr>
+        <th>Módulo</th>
+        <th>Tipo</th>
+        <th>Evaluación asociada</th>
+        <th>Estado</th>
+        <th>Acciones</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for m in modulos %}
+      <tr>
+        <td>
+          <div class="td-name">{{ m.titulo }}</div>
+          {% if m.descripcion %}
+            <div class="td-sub">{{ m.descripcion|truncatechars:60 }}</div>
+          {% endif %}
+        </td>
+        <td>
+          {% if m.tipo == 'gestion' %}
+            <span class="badge b-verde">Sistema de gestión</span>
+          {% else %}
+            <span class="badge b-amarillo">Técnico</span>
+          {% endif %}
+        </td>
+        <td class="text-muted">
+          {{ m.evaluacion.titulo|default:"—" }}
+        </td>
+        <td>
+          {% if m.activo %}
+            <span class="badge b-verde">Activo</span>
+          {% else %}
+            <span class="badge b-gris">Inactivo</span>
+          {% endif %}
+        </td>
+        <td>
+          <a href="{% url 'entrenamientos:avance' m.pk %}" class="btn btn-ghost btn-sm">
+            Ver módulo
+          </a>
+        </td>
+      </tr>
+      {% empty %}
+      <tr>
+        <td colspan="5" class="td-empty">
+          No hay módulos de entrenamiento creados aún.
+          Créalos desde el <a href="/admin/entrenamientos/moduloentrenamiento/add/" class="text-verde">panel admin →</a>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}
