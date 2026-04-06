@@ -69,11 +69,19 @@ class Evaluacion(models.Model):
 
 
 class Pregunta(models.Model):
+
+    TIPO_CHOICES = [
+        ('abierta', 'Abierta'),
+        ('vf', 'Verdadero/Falso'),
+        ('multiple', 'Opción múltiple'),
+    ]
+
     evaluacion  = models.ForeignKey(
-                      Evaluacion, on_delete=models.CASCADE,
-                      related_name='preguntas'
-                  )
+        Evaluacion, on_delete=models.CASCADE,
+        related_name='preguntas'
+    )
     enunciado   = models.TextField()
+    tipo        = models.CharField(max_length=10, choices=TIPO_CHOICES, default='multiple')
     orden       = models.PositiveIntegerField(default=1)
     puntaje     = models.DecimalField(max_digits=4, decimal_places=1, default=1.0)
 

@@ -6,6 +6,62 @@
 .timer-bar { height: 3px; background: var(--verde); border-radius: 2px; transition: width 1s linear; }
 .timer-bar.warn { background: var(--amarillo); }
 .timer-bar.danger { background: var(--rojo); }
+.pregunta-card {
+  background: var(--bg3);
+  border-radius: var(--r);
+  padding: 20px;
+  margin-bottom: 20px;
+  border: 1px solid var(--borde);
+}
+.preg-num {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--verde);
+  margin-bottom: 12px;
+}
+.preg-txt {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--txt);
+  margin-bottom: 18px;
+  line-height: 1.4;
+}
+.opcion-wrap {
+  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.opcion-wrap input[type="radio"] {
+  accent-color: var(--verde);
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  flex-shrink: 0;
+}
+.opcion-label {
+  color: var(--txt2);
+  font-size: 14px;
+  cursor: pointer;
+  flex: 1;
+}
+textarea.respuesta-abierta {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1.5px solid var(--borde2);
+  border-radius: var(--r);
+  background: var(--bg2);
+  color: var(--txt);
+  font-size: 14px;
+  font-family: inherit;
+  resize: vertical;
+}
+textarea.respuesta-abierta:focus {
+  outline: none;
+  border-color: var(--verde);
+}
 </style>
 {% endblock %}
 {% block content %}
@@ -34,20 +90,53 @@
 
   <form method="post" id="eval-form">
     {% csrf_token %}
-    {% for field in form %}
+    
+    {% for pregunta in preguntas %}
     <div class="pregunta-card">
-      <div class="preg-num">Pregunta {{ forloop.counter }} de {{ form|length }}</div>
-      <div class="preg-txt">{{ field.label }}</div>
-      {% for radio in field %}
-      <div class="opcion-wrap">
-        <input type="radio" name="{{ field.html_name }}" id="{{ radio.id_for_label }}" value="{{ radio.data.value }}" required>
-        <label class="opcion-label" for="{{ radio.id_for_label }}">
-          <div class="opcion-dot"></div>
-          {{ radio.choice_label }}
-        </label>
-      </div>
-      {% endfor %}
-      {% if field.errors %}<div class="alert alert-error mt-8" style="margin-top:8px">{{ field.errors }}</div>{% endif %}
+      <div class="preg-num">Pregunta {{ forloop.counter }} de {{ preguntas|length }}</div>
+      <div class="preg-txt">{{ pregunta.enunciado }}</div>
+
+      {% if pregunta.tipo == 'abierta' %}
+        <!-- ✍️ PREGUNTA ABIERTA -->
+        <textarea name="pregunta_{{ pregunta.id }}" 
+                  class="respuesta-abierta" 
+                  rows="4" 
+                  placeholder="Escribe tu respuesta aquí..."
+                  required></textarea>
+        {% if pregunta.respuesta_esperada %}
+        <div class="hint" style="margin-top:8px;font-size:11px;color:var(--txt3)">
+          💡 Pista: {{ pregunta.respuesta_esperada|truncatewords:8 }}
+        </div>
+        {% endif %}
+
+      {% elif pregunta.tipo == 'vf' %}
+        <!-- ✅❌ VERDADERO / FALSO -->
+        {% for opcion in pregunta.opciones.all %}
+        <div class="opcion-wrap">
+          <input type="radio" name="pregunta_{{ pregunta.id }}" 
+                 value="{{ opcion.id }}" 
+                 id="preg{{ pregunta.id }}_op{{ opcion.id }}"
+                 required>
+          <label class="opcion-label" for="preg{{ pregunta.id }}_op{{ opcion.id }}">
+            {{ opcion.texto }}
+          </label>
+        </div>
+        {% endfor %}
+
+      {% else %}
+        <!-- 🔘 OPCIÓN MÚLTIPLE -->
+        {% for opcion in pregunta.opciones.all %}
+        <div class="opcion-wrap">
+          <input type="radio" name="pregunta_{{ pregunta.id }}" 
+                 value="{{ opcion.id }}" 
+                 id="preg{{ pregunta.id }}_op{{ opcion.id }}"
+                 required>
+          <label class="opcion-label" for="preg{{ pregunta.id }}_op{{ opcion.id }}">
+            {{ opcion.texto }}
+          </label>
+        </div>
+        {% endfor %}
+      {% endif %}
     </div>
     {% endfor %}
 
@@ -59,6 +148,7 @@
     </div>
   </form>
 </div>
+{% endblock %}
 
 {% block extra_js %}
 <script>
@@ -70,7 +160,7 @@ const bar    = document.getElementById('timer-bar');
 const iv = setInterval(() => {
   secsLeft--;
   const m = Math.floor(secsLeft/60), s = secsLeft%60;
-  txt.textContent = `${m}:${String(s).padStart(2,'0')}`;
+  txt.textContent = m + ":" + String(s).padStart(2,'0');
   const pct = (secsLeft/total) * 100;
   bar.style.width = pct + '%';
   if (pct < 25) { bar.className = 'timer-bar danger'; txt.style.color = 'var(--rojo)'; }
@@ -78,9 +168,43 @@ const iv = setInterval(() => {
   if (secsLeft <= 0) { clearInterval(iv); document.getElementById('eval-form').submit(); }
 }, 1000);
 {% endif %}
-document.getElementById('btn-enviar').addEventListener('click', function() {
-  setTimeout(() => { this.textContent = 'Enviando...'; this.disabled = true; }, 100);
+
+document.getElementById('btn-enviar').addEventListener('click', function(e) {
+  // Validar que todas las preguntas tengan respuesta
+  const radios = document.querySelectorAll('input[type="radio"]');
+  const texts = document.querySelectorAll('textarea');
+  let allAnswered = true;
+  
+  // Para cada pregunta, verificar si tiene respuesta
+  {% for pregunta in preguntas %}
+    if ({{ forloop.counter0 }} === 0) { // Solo ejemplo, mejor hacerlo con JS puro
+      const name = 'pregunta_{{ pregunta.id }}';
+      const radiosForQ = document.querySelectorAll('input[name="' + name + '"]');
+      const textForQ = document.querySelector('textarea[name="' + name + '"]');
+      
+      if (radiosForQ.length > 0) {
+        const checked = Array.from(radiosForQ).some(r => r.checked);
+        if (!checked) {
+          allAnswered = false;
+          alert('Por favor responde la pregunta {{ forloop.counter }}');
+          e.preventDefault();
+          return false;
+        }
+      } else if (textForQ && textForQ.value.trim() === '') {
+        allAnswered = false;
+        alert('Por favor responde la pregunta {{ forloop.counter }}');
+        e.preventDefault();
+        return false;
+      }
+    }
+  {% endfor %}
+  
+  if (allAnswered) {
+    setTimeout(() => { 
+      this.textContent = 'Enviando...'; 
+      this.disabled = true; 
+    }, 100);
+  }
 });
 </script>
-{% endblock %}
 {% endblock %}

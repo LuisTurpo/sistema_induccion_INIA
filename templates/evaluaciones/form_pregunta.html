@@ -17,10 +17,23 @@
     <div class="card-body">
       <form method="post">
         {% csrf_token %}
+        
+        <!-- Enunciado -->
         <div class="fg">
           <label>Enunciado <span class="req">*</span></label>
           <textarea name="enunciado" class="fc" rows="3" placeholder="Escribe la pregunta aquí..." required></textarea>
         </div>
+        
+        <!-- TIPO DE PREGUNTA (NUEVO) -->
+        <div class="fg">
+          <label>Tipo de pregunta <span class="req">*</span></label>
+          <select name="tipo" class="fc" onchange="cambiarTipo(this.value)" required>
+            <option value="multiple">Opción múltiple</option>
+            <option value="vf">Verdadero / Falso</option>
+            <option value="abierta">Respuesta abierta</option>
+          </select>
+        </div>
+        
         <div class="grid2">
           <div class="fg">
             <label>Orden</label>
@@ -32,18 +45,48 @@
           </div>
         </div>
 
-        <div style="border-top:1px solid var(--borde);padding-top:14px;margin-top:4px">
-          <div class="fs-title">Opciones de respuesta</div>
-          <div class="text-xs text-muted" style="margin-bottom:12px">El círculo seleccionado indica la respuesta correcta.</div>
-          {% for i in "0123" %}
-          <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
-            <input type="radio" name="correcta_idx" value="{{ i }}"
-                   {% if forloop.first %}checked{% endif %}
-                   style="accent-color:var(--verde);flex-shrink:0;width:16px;height:16px">
-            <input type="text" name="op{{ i }}-texto" class="fc"
-                   placeholder="Opción {{ forloop.counter }}" required style="margin-bottom:0">
+        <!-- 🔘 OPCIONES MÚLTIPLE (por defecto visible) -->
+        <div id="opciones-multiple">
+          <div style="border-top:1px solid var(--borde);padding-top:14px;margin-top:4px">
+            <div class="fs-title">Opciones de respuesta</div>
+            <div class="text-xs text-muted" style="margin-bottom:12px">El círculo seleccionado indica la respuesta correcta.</div>
+            {% for i in "0123" %}
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+              <input type="radio" name="correcta_idx" value="{{ i }}"
+                     {% if forloop.first %}checked{% endif %}
+                     style="accent-color:var(--verde);flex-shrink:0;width:16px;height:16px">
+              <input type="text" name="op{{ i }}-texto" class="fc"
+                     placeholder="Opción {{ forloop.counter }}" required style="margin-bottom:0">
+            </div>
+            {% endfor %}
           </div>
-          {% endfor %}
+        </div>
+
+        <!-- ✅❌ VERDADERO / FALSO (oculto inicialmente) -->
+        <div id="opciones-vf" style="display:none">
+          <div style="border-top:1px solid var(--borde);padding-top:14px;margin-top:4px">
+            <div class="fs-title">Verdadero / Falso</div>
+            <div class="fg" style="margin-top:10px">
+              <label>Respuesta correcta <span class="req">*</span></label>
+              <select name="vf_correcta" class="fc">
+                <option value="true">Verdadero</option>
+                <option value="false">Falso</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- ✍️ ABIERTA (oculto inicialmente) -->
+        <div id="opciones-abierta" style="display:none">
+          <div style="border-top:1px solid var(--borde);padding-top:14px;margin-top:4px">
+            <div class="fs-title">Respuesta Abierta</div>
+            <div class="fg" style="margin-top:10px">
+              <label>Respuesta esperada (opcional) <span class="req">*</span></label>
+              <input type="text" name="respuesta_abierta" class="fc" 
+                     placeholder="Ej: 42, ISO/IEC 17025, El cliente siempre tiene razón...">
+              <div class="hint">Dejar en blanco si requiere revisión manual</div>
+            </div>
+          </div>
         </div>
 
         <div style="margin-top:14px">
@@ -63,7 +106,14 @@
       {% for p in evaluacion.preguntas.all %}
       <div style="padding:14px 16px;border-bottom:1px solid var(--borde)">
         <div class="flex justify-between items-center" style="margin-bottom:8px">
-          <span class="text-xs font-600 text-verde" style="text-transform:uppercase;letter-spacing:.06em">Pregunta {{ p.orden }}</span>
+          <span class="text-xs font-600">
+            <span class="text-verde" style="text-transform:uppercase;letter-spacing:.06em">
+              {% if p.tipo == 'abierta' %}✍️ Abierta
+              {% elif p.tipo == 'vf' %}✅❌ V/F
+              {% else %}🔘 Múltiple{% endif %}
+            </span>
+            <span class="text-muted">· Puntaje: {{ p.puntaje }}</span>
+          </span>
           <a href="{% url 'evaluaciones:eliminar_pregunta' p.pk %}"
              onclick="return confirm('¿Eliminar esta pregunta?')"
              class="btn btn-danger btn-sm">Eliminar</a>
@@ -78,6 +128,17 @@
               {% if op.es_correcta %}✓{% else %}○{% endif %}
             </span>
             <span class="text-sm" style="color:{% if op.es_correcta %}var(--txt){% else %}var(--txt2){% endif %}">{{ op.texto }}</span>
+          </div>
+          {% empty %}
+          <div class="text-xs text-muted" style="padding:8px">
+            {% if p.tipo == 'abierta' %}
+              ✍️ Respuesta abierta
+              {% if p.respuesta_esperada %}(Esperada: "{{ p.respuesta_esperada }}"){% endif %}
+            {% elif p.tipo == 'vf' %}
+              ✅❌ Verdadero/Falso
+            {% else %}
+              Sin opciones configuradas
+            {% endif %}
           </div>
           {% endfor %}
         </div>
@@ -99,4 +160,39 @@
   </div>
 
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function cambiarTipo(tipo) {
+  // Ocultar todas
+  document.getElementById('opciones-multiple').style.display = 'none';
+  document.getElementById('opciones-vf').style.display = 'none';
+  document.getElementById('opciones-abierta').style.display = 'none';
+  
+  // Mostrar según tipo
+  if (tipo === 'multiple') {
+    document.getElementById('opciones-multiple').style.display = 'block';
+    // Marcar required en opciones múltiple
+    document.querySelectorAll('input[name^="op"]').forEach(el => el.required = true);
+    document.querySelector('select[name="vf_correcta"]').required = false;
+    document.querySelector('input[name="respuesta_abierta"]').required = false;
+  } else if (tipo === 'vf') {
+    document.getElementById('opciones-vf').style.display = 'block';
+    document.querySelectorAll('input[name^="op"]').forEach(el => el.required = false);
+    document.querySelector('select[name="vf_correcta"]').required = true;
+    document.querySelector('input[name="respuesta_abierta"]').required = false;
+  } else if (tipo === 'abierta') {
+    document.getElementById('opciones-abierta').style.display = 'block';
+    document.querySelectorAll('input[name^="op"]').forEach(el => el.required = false);
+    document.querySelector('select[name="vf_correcta"]').required = false;
+    document.querySelector('input[name="respuesta_abierta"]').required = false;
+  }
+}
+
+// Inicializar al cargar (múltiple por defecto)
+document.addEventListener('DOMContentLoaded', () => {
+  cambiarTipo('multiple');
+});
+</script>
 {% endblock %}

@@ -72,36 +72,70 @@ def editar_evaluacion(request, pk):
 def agregar_pregunta(request, pk):
     if not request.user.es_admin:
         return redirect('dashboard')
+
     ev = get_object_or_404(Evaluacion, pk=pk)
 
     if request.method == 'POST':
         enunciado = request.POST.get('enunciado', '').strip()
+        tipo      = request.POST.get('tipo')
         orden     = request.POST.get('orden', ev.preguntas.count() + 1)
         puntaje   = request.POST.get('puntaje', 1)
+
         if not enunciado:
             messages.error(request, 'El enunciado no puede estar vacío.')
         else:
             pregunta = Pregunta.objects.create(
                 evaluacion=ev,
                 enunciado=enunciado,
+                tipo=tipo,
                 orden=int(orden),
                 puntaje=float(puntaje),
             )
-            correcta_idx = int(request.POST.get('correcta_idx', 0))
-            for i in range(4):
-                texto = request.POST.get(f'op{i}-texto', '').strip()
-                if texto:
-                    Opcion.objects.create(
-                        pregunta=pregunta,
-                        texto=texto,
-                        es_correcta=(i == correcta_idx),
-                    )
+
+            # 🔘 OPCIÓN MÚLTIPLE
+            if tipo == 'multiple':
+                correcta_idx = int(request.POST.get('correcta_idx', 0))
+                for i in range(4):
+                    texto = request.POST.get(f'op{i}-texto', '').strip()
+                    if texto:
+                        Opcion.objects.create(
+                            pregunta=pregunta,
+                            texto=texto,
+                            es_correcta=(i == correcta_idx),
+                        )
+
+            # ✅❌ VERDADERO / FALSO
+            elif tipo == 'vf':
+                correcta = request.POST.get('vf_correcta')  # "true" o "false"
+
+                Opcion.objects.create(
+                    pregunta=pregunta,
+                    texto="Verdadero",
+                    es_correcta=(correcta == "true")
+                )
+                Opcion.objects.create(
+                    pregunta=pregunta,
+                    texto="Falso",
+                    es_correcta=(correcta == "false")
+                )
+
+            # ✍️ ABIERTA
+            elif tipo == 'abierta':
+                respuesta = request.POST.get('respuesta_abierta', '').strip()
+
+                Opcion.objects.create(
+                    pregunta=pregunta,
+                    texto=respuesta,
+                    es_correcta=True
+                )
+
             messages.success(request, 'Pregunta agregada correctamente.')
 
     preguntas = ev.preguntas.prefetch_related('opciones').all()
+
     return render(request, 'evaluaciones/form_pregunta.html', {
         'evaluacion': ev,
-        'preguntas':  preguntas,
+        'preguntas': preguntas,
     })
 
 
@@ -226,9 +260,8 @@ def rendir_evaluacion(request, pk):
         messages.error(request, 'Esta evaluación no tiene preguntas aún.')
         return redirect('evaluaciones:mis_evaluaciones')
 
-    form = ResponderEvaluacionForm(preguntas, request.POST or None)
-
-    if request.method == 'POST' and form.is_valid():
+    # ✅ CORRECCIÓN AQUÍ: eliminamos form y validación con is_valid()
+    if request.method == 'POST':
         intento = Intento.objects.create(
             trabajador=trabajador,
             evaluacion=ev,
@@ -238,36 +271,60 @@ def rendir_evaluacion(request, pk):
         puntaje_max   = sum(float(p.puntaje) for p in preguntas)
 
         for pregunta in preguntas:
-            opcion_id = form.cleaned_data.get(f'pregunta_{pregunta.pk}')
-            if opcion_id:
-                opcion   = get_object_or_404(Opcion, pk=opcion_id)
-                correcta = opcion.es_correcta
+            # ✍️ ABIERTA
+            if pregunta.tipo == 'abierta':
+                respuesta_texto = request.POST.get(f'pregunta_{pregunta.pk}', '').strip()
+
+                correcta = False
+                opcion_correcta = pregunta.opciones.first()
+
+                if opcion_correcta:
+                    correcta = respuesta_texto.lower() == opcion_correcta.texto.lower()
+
                 if correcta:
                     puntaje_total += float(pregunta.puntaje)
+
                 RespuestaIntento.objects.create(
                     intento=intento,
                     pregunta=pregunta,
-                    opcion=opcion,
+                    opcion=opcion_correcta,
                     correcta=correcta,
                 )
 
-        nota     = round((puntaje_total / puntaje_max) * 20, 1) if puntaje_max > 0 else 0
+            # 🔘 MÚLTIPLE y VF
+            else:
+                opcion_id = request.POST.get(f'pregunta_{pregunta.pk}')   # ✅ cambiado a request.POST
+
+                if opcion_id:
+                    opcion = get_object_or_404(Opcion, pk=opcion_id)
+                    correcta = opcion.es_correcta
+
+                    if correcta:
+                        puntaje_total += float(pregunta.puntaje)
+
+                    RespuestaIntento.objects.create(
+                        intento=intento,
+                        pregunta=pregunta,
+                        opcion=opcion,
+                        correcta=correcta,
+                    )
+
+        nota = round((puntaje_total / puntaje_max) * 20, 1) if puntaje_max > 0 else 0
         aprobado = nota >= float(ev.nota_minima)
 
         intento.puntuacion = nota
-        intento.aprobado   = aprobado
-        intento.fecha_fin  = timezone.now()
+        intento.aprobado = aprobado
+        intento.fecha_fin = timezone.now()
         intento.save()
 
         return redirect('evaluaciones:resultado', pk=intento.pk)
 
+    # ✅ GET: solo mostrar el formulario (sin validación Django)
     return render(request, 'evaluaciones/rendir.html', {
-        'evaluacion':         ev,
-        'form':               form,
+        'evaluacion': ev,
+        'preguntas': preguntas,
         'intentos_restantes': ev.max_intentos - num_intentos,
-        'preguntas':          preguntas,
     })
-
 
 @login_required
 def resultado_evaluacion(request, pk):
