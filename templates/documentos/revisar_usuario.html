@@ -1,0 +1,294 @@
+{% extends "base.html" %}
+
+{% block title %}Revisar Documentos{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div>
+    <div class="page-title">Revisar Documentos</div>
+    <div class="page-sub">Documentos subidos por los trabajadores</div>
+  </div>
+</div>
+
+<!-- 📊 ESTADÍSTICAS -->
+<div class="stats-grid">
+  <div class="stat c-verde">
+    <div class="stat-label">Total</div>
+    <div class="stat-val">{{ documentos.count }}</div>
+  </div>
+  <div class="stat c-amarillo">
+    <div class="stat-label">Pendientes</div>
+    <div class="stat-val">{{ documentos|dictsortreversed:"estado"|length }}{% with pendientes=documentos|length %}{% endwith %}</div>
+  </div>
+  <div class="stat c-azul">
+    <div class="stat-label">Aprobados</div>
+    <div class="stat-val">{{ documentos|dictsortreversed:"estado"|length }}{% with aprobados=documentos|length %}{% endwith %}</div>
+  </div>
+  <div class="stat c-morado">
+    <div class="stat-label">Rechazados</div>
+    <div class="stat-val">{{ documentos|dictsortreversed:"estado"|length }}{% with rechazados=documentos|length %}{% endwith %}</div>
+  </div>
+</div>
+
+<!-- 🔍 FILTROS -->
+<div class="card mb-20">
+  <div class="card-body">
+    <div class="flex justify-between flex-wrap gap-12">
+      <div class="search">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="11" cy="11" r="8"/>
+          <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+        </svg>
+        <input type="text" id="searchInput" placeholder="Buscar por usuario o documento...">
+      </div>
+      <select id="estadoFilter" class="fc" style="width: auto; min-width: 130px;">
+        <option value="todos">📋 Todos los estados</option>
+        <option value="pendiente">🟡 Pendiente</option>
+        <option value="aprobado">🟢 Aprobado</option>
+        <option value="rechazado">🔴 Rechazado</option>
+      </select>
+    </div>
+  </div>
+</div>
+
+<!-- 📋 TABLA DE DOCUMENTOS -->
+<div class="table-wrap">
+  <div class="tw-head">
+    <div class="card-title">Documentos subidos</div>
+  </div>
+  
+  <table id="revisarTable">
+    <thead>
+      <tr>
+        <th>Usuario</th>
+        <th>Documento</th>
+        <th>Fecha</th>
+        <th>Estado</th>
+        <th>Comentarios/Acciones</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for doc in documentos %}
+      <tr data-estado="{{ doc.estado }}" data-id="{{ doc.id }}">
+        <td>
+          <div class="td-name">{{ doc.usuario.get_full_name }}</div>
+          <div class="td-sub">{{ doc.usuario.email }}</div>
+        </td>
+        <td>
+          <div class="td-name">{{ doc.titulo }}</div>
+          <div class="td-sub">{{ doc.descripcion|truncatechars:50 }}</div>
+          {% if doc.archivo %}
+          <a href="{{ doc.archivo.url }}" target="_blank" class="text-sm text-verde">📄 Ver documento →</a>
+          {% endif %}
+        </td>
+        <td>
+          <div class="td-name">{{ doc.fecha_subida|date:"d/m/Y" }}</div>
+          <div class="td-sub">{{ doc.fecha_subida|date:"H:i" }}</div>
+        </td>
+        <td>
+          {% if doc.estado == 'pendiente' %}
+            <span class="badge b-amarillo">🟡 Pendiente</span>
+          {% elif doc.estado == 'aprobado' %}
+            <span class="badge b-verde">✅ Aprobado</span>
+          {% else %}
+            <span class="badge b-rojo">❌ Rechazado</span>
+          {% endif %}
+        </td>
+        <td style="min-width: 300px;">
+          {% if doc.estado == 'pendiente' %}
+            <!-- Modal de revisión con comentarios -->
+            <button class="btn btn-sm btn-primary" onclick="abrirModalRevision({{ doc.id }}, '{{ doc.titulo|escapejs }}', '{{ doc.usuario.get_full_name|escapejs }}')">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                <circle cx="12" cy="12" r="3"/>
+              </svg>
+              Revisar
+            </button>
+          {% else %}
+            <div class="card" style="background: var(--bg3); padding: 8px 12px;">
+              <div class="text-xs text-muted">Comentario del administrador:</div>
+              <div class="text-sm">{% if doc.observacion %}{{ doc.observacion }}{% else %}Sin comentarios{% endif %}</div>
+            </div>
+          {% endif %}
+        </td>
+      </tr>
+      {% empty %}
+      <tr>
+        <td colspan="5" class="td-empty">
+          No hay documentos pendientes de revisión.
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<!-- MODAL PARA REVISAR DOCUMENTO -->
+<div id="modalRevision" class="modal" style="display: none;">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h3>Revisar Documento</h3>
+      <span class="modal-close" onclick="cerrarModal()">&times;</span>
+    </div>
+    <div class="modal-body">
+      <div class="fg">
+        <label>Documento:</label>
+        <p id="modalDocTitulo" style="font-weight: 600; margin-bottom: 10px;"></p>
+      </div>
+      <div class="fg">
+        <label>Usuario:</label>
+        <p id="modalDocUsuario" style="margin-bottom: 15px;"></p>
+      </div>
+      <div class="fg">
+        <label for="observacion">Comentario / Observación:</label>
+        <textarea id="observacion" class="fc" rows="4" placeholder="Escribe aquí tu comentario sobre el documento..."></textarea>
+        <div class="hint">Este comentario será visible para el usuario</div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-danger" onclick="rechazarDocumento()">
+        ❌ Rechazar
+      </button>
+      <button class="btn btn-primary" onclick="aprobarDocumento()">
+        ✅ Aprobar
+      </button>
+    </div>
+  </div>
+</div>
+
+<style>
+  .modal {
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0,0,0,0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  
+  .modal-content {
+    background: var(--bg2);
+    border-radius: var(--r2);
+    width: 500px;
+    max-width: 90%;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+  }
+  
+  .modal-header {
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--borde);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  
+  .modal-header h3 {
+    margin: 0;
+    color: var(--txt);
+  }
+  
+  .modal-close {
+    font-size: 28px;
+    cursor: pointer;
+    color: var(--txt3);
+  }
+  
+  .modal-close:hover {
+    color: var(--rojo);
+  }
+  
+  .modal-body {
+    padding: 20px;
+  }
+  
+  .modal-footer {
+    padding: 16px 20px;
+    border-top: 1px solid var(--borde);
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+  }
+  
+  .mb-20 {
+    margin-bottom: 20px;
+  }
+</style>
+
+<script>
+  let documentoActualId = null;
+  
+  function abrirModalRevision(docId, titulo, usuario) {
+    documentoActualId = docId;
+    document.getElementById('modalDocTitulo').textContent = titulo;
+    document.getElementById('modalDocUsuario').textContent = usuario;
+    document.getElementById('observacion').value = '';
+    document.getElementById('modalRevision').style.display = 'flex';
+  }
+  
+  function cerrarModal() {
+    document.getElementById('modalRevision').style.display = 'none';
+    documentoActualId = null;
+  }
+  
+  function aprobarDocumento() {
+    const observacion = document.getElementById('observacion').value;
+    if (confirm('¿Estás seguro de APROBAR este documento?')) {
+      window.location.href = `/documentos/usuario/estado/${documentoActualId}/aprobado/?observacion=${encodeURIComponent(observacion)}`;
+    }
+  }
+  
+  function rechazarDocumento() {
+    const observacion = document.getElementById('observacion').value;
+    if (!observacion.trim()) {
+      alert('Por favor, escribe un comentario explicando por qué se rechaza el documento.');
+      return;
+    }
+    if (confirm('¿Estás seguro de RECHAZAR este documento?')) {
+      window.location.href = `/documentos/usuario/estado/${documentoActualId}/rechazado/?observacion=${encodeURIComponent(observacion)}`;
+    }
+  }
+  
+  // Filtros
+  const searchInput = document.getElementById('searchInput');
+  const estadoFilter = document.getElementById('estadoFilter');
+  const tableRows = document.querySelectorAll('#revisarTable tbody tr');
+  
+  function filterTable() {
+    const searchTerm = searchInput.value.toLowerCase();
+    const estadoValue = estadoFilter.value;
+    
+    tableRows.forEach(row => {
+      let show = true;
+      const text = row.innerText.toLowerCase();
+      const estado = row.getAttribute('data-estado');
+      
+      if (searchTerm && !text.includes(searchTerm)) show = false;
+      if (estadoValue !== 'todos' && estado !== estadoValue) show = false;
+      
+      row.style.display = show ? '' : 'none';
+    });
+  }
+  
+  searchInput.addEventListener('keyup', filterTable);
+  estadoFilter.addEventListener('change', filterTable);
+  
+  // Cerrar modal con ESC
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape' && document.getElementById('modalRevision').style.display === 'flex') {
+      cerrarModal();
+    }
+  });
+  
+  // Cerrar modal clickeando fuera
+  window.onclick = function(e) {
+    const modal = document.getElementById('modalRevision');
+    if (e.target === modal) {
+      cerrarModal();
+    }
+  }
+</script>
+{% endblock %}

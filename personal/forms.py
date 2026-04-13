@@ -169,6 +169,6 @@ class EditarTrabajadorForm(forms.Form):
     )
     rol = forms.ChoiceField(label='Rol', choices=[
         ('personal',   'Personal'),
-        ('supervisor', 'Supervisor'),
         ('admin',      'Administrador'),
     ])
+

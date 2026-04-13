@@ -1,0 +1,468 @@
+{% extends "base.html" %}
+
+{% block title %}Mis Documentos{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div>
+    <div class="page-title">Mis Documentos</div>
+    <div class="page-sub">Gestiona y da seguimiento a tus documentos subidos</div>
+  </div>
+  <a href="{% url 'documentos:subir_documento_usuario' %}" class="btn btn-primary">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="M12 5v14M5 12h14"/>
+    </svg>
+    Subir nuevo documento
+  </a>
+</div>
+
+<!-- 📊 ESTADÍSTICAS -->
+<div class="stats-grid">
+  <div class="stat c-verde">
+    <div class="stat-label">Total documentos</div>
+    <div class="stat-val" id="totalCount">{{ documentos.count }}</div>
+    <div class="stat-sub">Documentos subidos</div>
+    <div class="stat-ico">
+      <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
+        <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+        <polyline points="14,2 14,8 20,8"/>
+      </svg>
+    </div>
+  </div>
+
+  <div class="stat c-amarillo">
+    <div class="stat-label">Pendientes</div>
+    <div class="stat-val" id="pendientesCount">{{ documentos|length }}</div>
+    <div class="stat-sub">Esperando revisión</div>
+    <div class="stat-ico">
+      <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
+        <circle cx="12" cy="12" r="10"/>
+        <polyline points="12,6 12,12 16,14"/>
+      </svg>
+    </div>
+  </div>
+
+  <div class="stat c-azul">
+    <div class="stat-label">Aprobados</div>
+    <div class="stat-val" id="aprobadosCount">0</div>
+    <div class="stat-sub">Documentos aceptados</div>
+    <div class="stat-ico">
+      <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
+        <path d="M22 11.08V12a10 10 0 11-5.93-9.14"/>
+        <polyline points="22,4 12,14.01 9,11.01"/>
+      </svg>
+    </div>
+  </div>
+
+  <div class="stat c-morado">
+    <div class="stat-label">Rechazados</div>
+    <div class="stat-val" id="rechazadosCount">0</div>
+    <div class="stat-sub">Requieren corrección</div>
+    <div class="stat-ico">
+      <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
+        <circle cx="12" cy="12" r="10"/>
+        <line x1="18" y1="6" x2="6" y2="18"/>
+        <line x1="6" y1="6" x2="18" y2="18"/>
+      </svg>
+    </div>
+  </div>
+</div>
+
+<!-- 🔍 FILTROS Y BÚSQUEDA -->
+<div class="card mb-20">
+  <div class="card-body">
+    <div class="flex justify-between flex-wrap gap-12">
+      <div class="search">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="11" cy="11" r="8"/>
+          <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+        </svg>
+        <input type="text" id="searchInput" placeholder="Buscar por título o descripción...">
+      </div>
+      
+      <div class="flex gap-8">
+        <select id="estadoFilter" class="fc" style="width: auto; min-width: 130px;">
+          <option value="todos">📋 Todos los estados</option>
+          <option value="pendiente">🟡 Pendiente</option>
+          <option value="aprobado">🟢 Aprobado</option>
+          <option value="rechazado">🔴 Rechazado</option>
+        </select>
+        
+        <select id="fechaFilter" class="fc" style="width: auto; min-width: 130px;">
+          <option value="todos">📅 Todas las fechas</option>
+          <option value="hoy">Hoy</option>
+          <option value="semana">Última semana</option>
+          <option value="mes">Último mes</option>
+        </select>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 📋 TABLA DE DOCUMENTOS -->
+<div class="table-wrap">
+  <div class="tw-head">
+    <div class="card-title">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 6px;">
+        <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+        <polyline points="14,2 14,8 20,8"/>
+      </svg>
+      Documentos subidos (<span id="filteredCount">{{ documentos.count }}</span>)
+    </div>
+    <div class="text-muted text-xs">
+      Última actualización: {% now "d/m/Y H:i" %}
+    </div>
+  </div>
+  
+  <div class="table-responsive">
+    <table id="documentosTable">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Documento</th>
+          <th>Descripción</th>
+          <th>Fecha de envío</th>
+          <th>Estado</th>
+          <th>Comentario del Administrador</th>
+          <th>Acciones</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for doc in documentos %}
+        <tr data-estado="{{ doc.estado }}" data-fecha="{{ doc.fecha_subida|date:'Y-m-d' }}">
+          <td class="text-muted" style="width: 40px;">{{ forloop.counter }}</td>
+          
+          <td style="min-width: 200px;">
+            <div class="td-name">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display: inline; margin-right: 6px;">
+                <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+                <polyline points="14,2 14,8 20,8"/>
+              </svg>
+              {{ doc.titulo }}
+            </div>
+            <div class="td-sub">
+              {% if doc.archivo %}
+                {{ doc.archivo.name|slice:"-20:"|cut:"/"|last }}
+              {% endif %}
+            </div>
+           </td>
+          
+          <td style="min-width: 200px;">
+            {{ doc.descripcion|default:"Sin descripción"|truncatechars:60 }}
+           </td>
+          
+          <td style="min-width: 140px;">
+            <div class="td-name">{{ doc.fecha_subida|date:"d/m/Y" }}</div>
+            <div class="td-sub">{{ doc.fecha_subida|date:"H:i" }} hrs</div>
+           </td>
+          
+          <td style="min-width: 120px;">
+            {% if doc.estado == 'pendiente' %}
+              <span class="badge b-amarillo">
+                <span>🟡</span> Pendiente
+              </span>
+              <div class="text-xs text-muted mt-8">En revisión...</div>
+            {% elif doc.estado == 'aprobado' %}
+              <span class="badge b-verde">
+                <span>✅</span> Aprobado
+              </span>
+              <div class="text-xs text-verde mt-8">Documento válido</div>
+            {% elif doc.estado == 'rechazado' %}
+              <span class="badge b-rojo">
+                <span>❌</span> Rechazado
+              </span>
+              <div class="text-xs text-muted mt-8">Requiere corrección</div>
+            {% endif %}
+           </td>
+          
+          <td style="min-width: 250px; max-width: 300px;">
+            {% if doc.observacion %}
+              <div class="comentario-card">
+                <div class="comentario-header">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/>
+                  </svg>
+                  <span class="text-xs text-muted">Comentario del administrador:</span>
+                </div>
+                <div class="comentario-texto">{{ doc.observacion }}</div>
+                {% if doc.fecha_revision %}
+                  <div class="comentario-fecha">{{ doc.fecha_revision|date:"d/m/Y H:i" }}</div>
+                {% endif %}
+              </div>
+            {% else %}
+              <span class="text-muted text-xs">Sin comentarios</span>
+            {% endif %}
+           </td>
+          
+          <td style="min-width: 120px;">
+            <div class="flex gap-8">
+              {% if doc.archivo %}
+                <a href="{{ doc.archivo.url }}" target="_blank" class="btn btn-sm btn-ghost" title="Ver documento">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                    <circle cx="12" cy="12" r="3"/>
+                  </svg>
+                  Ver
+                </a>
+              {% endif %}
+              {% if doc.archivo %}
+                <a href="{{ doc.archivo.url }}" download class="btn btn-sm btn-ghost" title="Descargar">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+                    <polyline points="7,10 12,15 17,10"/>
+                    <line x1="12" y1="15" x2="12" y2="3"/>
+                  </svg>
+                </a>
+              {% endif %}
+            </div>
+           </td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="7" class="td-empty">
+            <div style="text-align: center; padding: 40px;">
+              <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" style="margin: 0 auto 16px;">
+                <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+                <polyline points="14,2 14,8 20,8"/>
+              </svg>
+              <div style="font-size: 16px; font-weight: 600; margin-bottom: 8px;">No tienes documentos</div>
+              <div class="text-muted" style="margin-bottom: 20px;">Comienza subiendo tu primer documento</div>
+              <a href="{% url 'documentos:subir_documento_usuario' %}" class="btn btn-primary">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M12 5v14M5 12h14"/>
+                </svg>
+                Subir documento ahora
+              </a>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<style>
+  .table-responsive {
+    overflow-x: auto;
+  }
+  
+  .table-responsive table {
+    min-width: 900px;
+  }
+  
+  .mt-8 {
+    margin-top: 8px;
+  }
+  
+  .btn-sm {
+    padding: 4px 10px;
+    font-size: 11px;
+  }
+  
+  .gap-8 {
+    gap: 8px;
+  }
+  
+  .flex {
+    display: flex;
+  }
+  
+  .justify-between {
+    justify-content: space-between;
+  }
+  
+  .flex-wrap {
+    flex-wrap: wrap;
+  }
+  
+  .mb-20 {
+    margin-bottom: 20px;
+  }
+  
+  .text-xs {
+    font-size: 11px;
+  }
+  
+  .text-sm {
+    font-size: 12px;
+  }
+  
+  .text-verde {
+    color: var(--verde);
+  }
+  
+  .text-muted {
+    color: var(--txt3);
+  }
+  
+  /* Estilos para los comentarios */
+  .comentario-card {
+    background: var(--bg3);
+    border-left: 3px solid var(--verde);
+    border-radius: var(--r);
+    padding: 10px 12px;
+    transition: all 0.2s;
+  }
+  
+  .comentario-card:hover {
+    background: var(--verde-lt);
+    transform: translateX(2px);
+  }
+  
+  .comentario-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 6px;
+  }
+  
+  .comentario-header svg {
+    color: var(--verde);
+  }
+  
+  .comentario-texto {
+    font-size: 12px;
+    color: var(--txt);
+    line-height: 1.4;
+    margin-bottom: 6px;
+    word-wrap: break-word;
+  }
+  
+  .comentario-fecha {
+    font-size: 9px;
+    color: var(--txt3);
+    text-align: right;
+    font-family: var(--mono);
+  }
+  
+  /* Badge colors */
+  .b-amarillo {
+    background: #fffbeb;
+    color: #92400e;
+    border: 1px solid #fde68a;
+  }
+  
+  .b-verde {
+    background: var(--verde-lt);
+    color: var(--verde2);
+    border: 1px solid var(--borde2);
+  }
+  
+  .b-rojo {
+    background: #fef2f2;
+    color: #c0392b;
+    border: 1px solid #fecaca;
+  }
+  
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 3px 9px;
+    border-radius: 20px;
+  }
+</style>
+
+<script>
+  // Funcionalidad de búsqueda y filtros
+  const searchInput = document.getElementById('searchInput');
+  const estadoFilter = document.getElementById('estadoFilter');
+  const fechaFilter = document.getElementById('fechaFilter');
+  const tableRows = document.querySelectorAll('#documentosTable tbody tr');
+  
+  // Contar documentos por estado inicialmente
+  function contarEstadosIniciales() {
+    let pendientes = 0, aprobados = 0, rechazados = 0;
+    
+    tableRows.forEach(row => {
+      const estado = row.getAttribute('data-estado');
+      if (estado === 'pendiente') pendientes++;
+      else if (estado === 'aprobado') aprobados++;
+      else if (estado === 'rechazado') rechazados++;
+    });
+    
+    document.getElementById('pendientesCount').textContent = pendientes;
+    document.getElementById('aprobadosCount').textContent = aprobados;
+    document.getElementById('rechazadosCount').textContent = rechazados;
+  }
+  
+  function filterTable() {
+    const searchTerm = searchInput.value.toLowerCase();
+    const estadoValue = estadoFilter.value;
+    const fechaValue = fechaFilter.value;
+    const today = new Date();
+    const oneWeekAgo = new Date(today);
+    oneWeekAgo.setDate(today.getDate() - 7);
+    const oneMonthAgo = new Date(today);
+    oneMonthAgo.setMonth(today.getMonth() - 1);
+    
+    let visibleCount = 0;
+    let pendientesCount = 0;
+    let aprobadosCount = 0;
+    let rechazadosCount = 0;
+    
+    tableRows.forEach(row => {
+      let show = true;
+      
+      // Búsqueda por texto
+      if (searchTerm) {
+        const text = row.innerText.toLowerCase();
+        if (!text.includes(searchTerm)) show = false;
+      }
+      
+      // Filtro por estado
+      if (show && estadoValue !== 'todos') {
+        const estado = row.getAttribute('data-estado');
+        if (estado !== estadoValue) show = false;
+      }
+      
+      // Filtro por fecha
+      if (show && fechaValue !== 'todos') {
+        const fechaStr = row.getAttribute('data-fecha');
+        const fecha = new Date(fechaStr);
+        
+        if (fechaValue === 'hoy') {
+          if (fecha.toDateString() !== today.toDateString()) show = false;
+        } else if (fechaValue === 'semana') {
+          if (fecha < oneWeekAgo) show = false;
+        } else if (fechaValue === 'mes') {
+          if (fecha < oneMonthAgo) show = false;
+        }
+      }
+      
+      row.style.display = show ? '' : 'none';
+      
+      if (show) {
+        visibleCount++;
+        const estado = row.getAttribute('data-estado');
+        if (estado === 'pendiente') pendientesCount++;
+        else if (estado === 'aprobado') aprobadosCount++;
+        else if (estado === 'rechazado') rechazadosCount++;
+      }
+    });
+    
+    // Actualizar estadísticas
+    document.getElementById('filteredCount').textContent = visibleCount;
+    document.getElementById('totalCount').textContent = visibleCount;
+    document.getElementById('pendientesCount').textContent = pendientesCount;
+    document.getElementById('aprobadosCount').textContent = aprobadosCount;
+    document.getElementById('rechazadosCount').textContent = rechazadosCount;
+  }
+  
+  // Event listeners
+  searchInput.addEventListener('keyup', filterTable);
+  estadoFilter.addEventListener('change', filterTable);
+  fechaFilter.addEventListener('change', filterTable);
+  
+  // Inicializar contadores
+  contarEstadosIniciales();
+  
+  // Si no hay documentos, mostrar mensaje
+  if (tableRows.length === 0 || (tableRows.length === 1 && tableRows[0].querySelector('.td-empty'))) {
+    document.getElementById('filteredCount').textContent = '0';
+  }
+</script>
+{% endblock %}

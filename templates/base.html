@@ -137,7 +137,7 @@
 
     /* ── SIDEBAR ── */
     .sidebar {
-      width: 210px; flex-shrink: 0;
+      width: 260px; flex-shrink: 0;
       background: var(--bg2);
       border-right: 1px solid var(--borde);
       padding: 14px 10px;
@@ -534,20 +534,28 @@
       <div class="brand-sub">SISTEMA F-52 · PRO-04</div>
     </div>
   </a>
+  
+  <!-- 
+    ✅ TOPBAR SOLO MÓDULOS PRINCIPALES
+    =================================
+    Aquí solo van los módulos de alto nivel
+  -->
   <nav class="topnav">
     {% if user.es_admin %}
       <a href="{% url 'personal:lista' %}"     class="tnav-link {% if '/personal' in request.path %}active{% endif %}">Personal</a>
-      <a href="{% url 'documentos:lista' %}"   class="tnav-link {% if '/documentos' in request.path %}active{% endif %}">Documentos</a>
+      <a href="{% url 'documentos:lista' %}"   class="tnav-link {% if '/documentos' in request.path %}active{% endif %}">Documentos PDF</a>
       <a href="{% url 'evaluaciones:lista' %}" class="tnav-link {% if '/evaluaciones' in request.path and '/mis' not in request.path %}active{% endif %}">Evaluaciones</a>
       <a href="{% url 'supervision:lista' %}"  class="tnav-link {% if '/supervision' in request.path %}active{% endif %}">Supervisión</a>
       <a href="{% url 'reportes:lista' %}"     class="tnav-link {% if '/reportes' in request.path %}active{% endif %}">Reportes F-52</a>
     {% elif user.es_supervisor %}
       <a href="{% url 'supervision:lista' %}"  class="tnav-link {% if '/supervision' in request.path %}active{% endif %}">Supervisión</a>
+      <a href="{% url 'evaluaciones:lista' %}" class="tnav-link {% if '/evaluaciones' in request.path %}active{% endif %}">Evaluaciones</a>
     {% else %}
-      <a href="{% url 'induccion:mis_documentos' %}"      class="tnav-link {% if '/induccion' in request.path %}active{% endif %}">Mis documentos</a>
-      <a href="{% url 'evaluaciones:mis_evaluaciones' %}" class="tnav-link {% if '/mis' in request.path %}active{% endif %}">Mis evaluaciones</a>
+      <a href="{% url 'induccion:mis_documentos' %}"      class="tnav-link {% if '/induccion' in request.path %}active{% endif %}">Inducción</a>
+      <a href="{% url 'evaluaciones:mis_evaluaciones' %}" class="tnav-link {% if '/mis' in request.path %}active{% endif %}">Mis Evaluaciones</a>
     {% endif %}
   </nav>
+  
   <div class="topbar-end">
     <div class="user-pill">
       <div class="user-av">{{ user.first_name|slice:":1" }}{{ user.last_name|slice:":1" }}</div>
@@ -562,59 +570,140 @@
 
 <div class="app-layout">
   <aside class="sidebar">
+    <!-- 
+      ✅ SIDEBAR = OPCIONES DENTRO DEL MÓDULO ACTUAL
+      ================================================
+      El sidebar cambia según el módulo activo
+    -->
+    
     {% if user.es_admin %}
+      <!-- MÓDULO: DASHBOARD -->
       <div class="sb-section">General</div>
       <a href="{% url 'dashboard' %}" class="sb-item {% if request.path == '/users/dashboard/' %}active{% endif %}">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/>
+          <rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/>
+        </svg>
         Dashboard
       </a>
+
+      <!-- MÓDULO: PERSONAL -->
       <div class="sb-section">Gestión</div>
       <a href="{% url 'personal:lista' %}" class="sb-item {% if '/personal' in request.path %}active{% endif %}">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/>
+        </svg>
         Personal
       </a>
-      <a href="{% url 'documentos:lista' %}" class="sb-item {% if '/documentos' in request.path %}active{% endif %}">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14,2 14,8 20,8"/></svg>
-        Documentos PDF
+
+      <!-- MÓDULO: DOCUMENTOS PDF (con sus sub-opciones) -->
+      <div class="sb-section">Documentos</div>
+      <a href="{% url 'documentos:lista' %}" class="sb-item {% if '/documentos' in request.path and 'revisar' not in request.path %}active{% endif %}">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14,2 14,8 20,8"/>
+        </svg>
+        Lista de documentos
       </a>
+      <a href="{% url 'documentos:subir' %}" class="sb-item {% if 'subir' in request.path and 'usuario' not in request.path %}active{% endif %}">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M12 5v14M5 12h14"/>
+        </svg>
+        Subir documento (admin)
+      </a>
+      <a href="{% url 'documentos:revisar_documentos_usuario' %}" class="sb-item {% if 'revisar' in request.path %}active{% endif %}">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22,4 12,14.01 9,11.01"/>
+        </svg>
+        Revisar documentos
+        {% if documentos_pendientes %}
+          <span class="sb-badge">{{ documentos_pendientes }}</span>
+        {% endif %}
+      </a>
+
+      <!-- MÓDULO: EVALUACIONES -->
+      <div class="sb-section">Evaluaciones</div>
       <a href="{% url 'evaluaciones:lista' %}" class="sb-item {% if '/evaluaciones' in request.path and '/mis' not in request.path %}active{% endif %}">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12,6 12,12 16,14"/></svg>
-        Evaluaciones
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="10"/><polyline points="12,6 12,12 16,14"/>
+        </svg>
+        Gestionar evaluaciones
       </a>
+
+      <!-- MÓDULO: PROCESO -->
       <div class="sb-section">Proceso</div>
       <a href="{% url 'supervision:lista' %}" class="sb-item {% if '/supervision' in request.path %}active{% endif %}">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22,4 12,14.01 9,11.01"/></svg>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22,4 12,14.01 9,11.01"/>
+        </svg>
         Supervisión
       </a>
       <a href="{% url 'autorizaciones:lista' %}" class="sb-item {% if '/autorizaciones' in request.path %}active{% endif %}">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/>
+        </svg>
         Autorizaciones
       </a>
+
+      <!-- MÓDULO: REPORTES -->
       <div class="sb-section">Reportes</div>
       <a href="{% url 'reportes:lista' %}" class="sb-item {% if '/reportes' in request.path %}active{% endif %}">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14,2 14,8 20,8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+          <polyline points="14,2 14,8 20,8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>
+        </svg>
         Excel F-52
         <div class="sb-dot"></div>
       </a>
+
     {% elif user.es_supervisor %}
+      <!-- SIDEBAR PARA SUPERVISOR -->
       <div class="sb-section">Mi trabajo</div>
-      <a href="{% url 'supervision:lista' %}" class="sb-item active">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22,4 12,14.01 9,11.01"/></svg>
-        Supervisión
+      <a href="{% url 'supervision:lista' %}" class="sb-item {% if '/supervision' in request.path %}active{% endif %}">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22,4 12,14.01 9,11.01"/>
+        </svg>
+        Equipos a supervisar
       </a>
+      <a href="{% url 'evaluaciones:lista' %}" class="sb-item">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="10"/><polyline points="12,6 12,12 16,14"/>
+        </svg>
+        Evaluaciones
+      </a>
+
     {% else %}
+      <!-- SIDEBAR PARA TRABAJADOR NORMAL -->
       <div class="sb-section">Mi inducción</div>
       <a href="{% url 'dashboard' %}" class="sb-item {% if request.path == '/users/dashboard/' %}active{% endif %}">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/>
+          <rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/>
+        </svg>
         Mi progreso
       </a>
       <a href="{% url 'induccion:mis_documentos' %}" class="sb-item {% if '/induccion' in request.path %}active{% endif %}">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14,2 14,8 20,8"/></svg>
-        Documentos
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14,2 14,8 20,8"/>
+        </svg>
+        Documentos por leer
+      </a>
+      <a href="{% url 'documentos:mis_documentos' %}" class="sb-item {% if 'mis-documentos' in request.path %}active{% endif %}">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14,2 14,8 20,8"/>
+        </svg>
+        Mis documentos subidos
+      </a>
+      <a href="{% url 'documentos:subir_documento_usuario' %}" class="sb-item {% if 'subir' in request.path %}active{% endif %}">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M12 5v14M5 12h14"/>
+        </svg>
+        Subir documento
       </a>
       <a href="{% url 'evaluaciones:mis_evaluaciones' %}" class="sb-item {% if '/mis' in request.path %}active{% endif %}">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12,6 12,12 16,14"/></svg>
-        Evaluaciones
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="10"/><polyline points="12,6 12,12 16,14"/>
+        </svg>
+        Mis evaluaciones
       </a>
     {% endif %}
   </aside>

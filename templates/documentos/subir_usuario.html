@@ -1,0 +1,441 @@
+{% extends "base.html" %}
+
+{% block title %}Subir Documento{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div>
+    <div class="page-title">Subir Documento</div>
+    <div class="page-sub">Comparte un documento con el administrador para su revisión</div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-head">
+    <div class="card-title">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 6px;">
+        <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+        <polyline points="14,2 14,8 20,8"/>
+        <line x1="12" y1="18" x2="12" y2="12"/>
+        <line x1="9" y1="15" x2="15" y2="15"/>
+      </svg>
+      Nuevo documento
+    </div>
+    <div class="text-muted text-xs">Campos marcados con * son obligatorios</div>
+  </div>
+  
+  <div class="card-body">
+    <form method="post" enctype="multipart/form-data" id="uploadForm">
+      {% csrf_token %}
+      
+      <!-- Título del documento -->
+      <div class="fg">
+        <label for="{{ form.titulo.id_for_label }}">
+          Título del documento <span class="req">*</span>
+        </label>
+        {{ form.titulo }}
+        {% if form.titulo.errors %}
+          <div class="ferr">{{ form.titulo.errors }}</div>
+        {% endif %}
+        <div class="hint">Ej: Certificado de estudios, Constancia laboral, etc.</div>
+      </div>
+
+      <!-- Descripción -->
+      <div class="fg">
+        <label for="{{ form.descripcion.id_for_label }}">Descripción</label>
+        {{ form.descripcion }}
+        {% if form.descripcion.errors %}
+          <div class="ferr">{{ form.descripcion.errors }}</div>
+        {% endif %}
+        <div class="hint">Breve descripción del contenido del documento (opcional)</div>
+      </div>
+
+      <!-- Archivo -->
+      <div class="fg">
+        <label for="{{ form.archivo.id_for_label }}">
+          Archivo <span class="req">*</span>
+        </label>
+        <div class="file-drop-area" id="fileDropArea">
+          <div class="file-drop-icon">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <path d="M13 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V9z"/>
+              <polyline points="13,2 13,9 20,9"/>
+              <line x1="12" y1="13" x2="12" y2="18"/>
+              <line x1="9" y1="16" x2="15" y2="16"/>
+            </svg>
+          </div>
+          <div class="file-drop-text">
+            <strong>Arrastra tu archivo aquí</strong> o haz clic para seleccionar
+          </div>
+          <div class="file-drop-sub">PDF, DOC, DOCX, JPG, PNG (máx. 10MB)</div>
+          {{ form.archivo }}
+        </div>
+        {% if form.archivo.errors %}
+          <div class="ferr">{{ form.archivo.errors }}</div>
+        {% endif %}
+      </div>
+
+      <!-- Vista previa del archivo -->
+      <div id="filePreview" class="file-preview" style="display: none;">
+        <div class="preview-card">
+          <div class="preview-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+              <polyline points="14,2 14,8 20,8"/>
+            </svg>
+          </div>
+          <div class="preview-info">
+            <div class="preview-name" id="fileName"></div>
+            <div class="preview-size" id="fileSize"></div>
+          </div>
+          <button type="button" class="preview-remove" id="removeFileBtn">✕</button>
+        </div>
+      </div>
+
+      <!-- Botones de acción -->
+      <div class="flex gap-12 mt-20">
+        <button type="submit" class="btn btn-primary" id="submitBtn">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+            <polyline points="14,2 14,8 20,8"/>
+            <line x1="12" y1="18" x2="12" y2="12"/>
+            <line x1="9" y1="15" x2="15" y2="15"/>
+          </svg>
+          Subir documento
+        </button>
+        <a href="{% url 'documentos:mis_documentos' %}" class="btn btn-ghost">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="19" y1="12" x2="5" y2="12"/>
+            <polyline points="12,19 5,12 12,5"/>
+          </svg>
+          Cancelar
+        </a>
+      </div>
+    </form>
+  </div>
+</div>
+
+<style>
+  .file-drop-area {
+    border: 2px dashed var(--borde2);
+    border-radius: var(--r2);
+    padding: 32px 20px;
+    text-align: center;
+    cursor: pointer;
+    transition: all .2s;
+    background: var(--bg3);
+  }
+  
+  .file-drop-area:hover {
+    border-color: var(--verde);
+    background: var(--verde-lt);
+  }
+  
+  .file-drop-area.drag-over {
+    border-color: var(--verde);
+    background: var(--verde-lt);
+    transform: scale(1.01);
+  }
+  
+  .file-drop-icon {
+    margin-bottom: 12px;
+    color: var(--txt3);
+  }
+  
+  .file-drop-text {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--txt);
+    margin-bottom: 4px;
+  }
+  
+  .file-drop-sub {
+    font-size: 11px;
+    color: var(--txt3);
+  }
+  
+  .file-drop-area input[type="file"] {
+    display: none;
+  }
+  
+  .file-preview {
+    margin-top: 16px;
+  }
+  
+  .preview-card {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px;
+    background: var(--verde-lt);
+    border: 1px solid var(--borde);
+    border-radius: var(--r);
+  }
+  
+  .preview-icon {
+    width: 40px;
+    height: 40px;
+    background: var(--bg2);
+    border-radius: var(--r);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--verde);
+  }
+  
+  .preview-info {
+    flex: 1;
+  }
+  
+  .preview-name {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--txt);
+  }
+  
+  .preview-size {
+    font-size: 11px;
+    color: var(--txt3);
+  }
+  
+  .preview-remove {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    border: none;
+    background: rgba(192, 57, 43, 0.1);
+    color: var(--rojo);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all .15s;
+  }
+  
+  .preview-remove:hover {
+    background: var(--rojo);
+    color: #fff;
+  }
+  
+  /* Estilos para los campos del formulario */
+  input:not([type="file"]), textarea, select {
+    width: 100%;
+    background: var(--bg2);
+    border: 1.5px solid var(--borde2);
+    border-radius: var(--r);
+    padding: 10px 12px;
+    font-size: 13px;
+    color: var(--txt);
+    outline: none;
+    transition: all .15s;
+  }
+  
+  input:focus, textarea:focus, select:focus {
+    border-color: var(--verde);
+    box-shadow: 0 0 0 3px var(--vglow);
+  }
+  
+  textarea {
+    resize: vertical;
+    min-height: 80px;
+  }
+
+  /* Reemplaza la sección de estilos para inputs con esto: */
+input, 
+textarea, 
+select,
+input[type="text"],
+input[type="email"],
+input[type="password"],
+input[type="number"],
+textarea.form-control,
+input.form-control {
+  width: 100%;
+  background: var(--bg2);
+  border: 1.5px solid var(--borde2);
+  border-radius: var(--r);
+  padding: 10px 12px;
+  font-size: 13px;
+  color: var(--txt);
+  outline: none;
+  transition: all .15s;
+}
+
+/* Asegurar que los inputs no estén deshabilitados ni readonly */
+input:not([disabled]):not([readonly]), 
+textarea:not([disabled]):not([readonly]) {
+  background: var(--bg2);
+}
+
+/* Asegurar que los campos del formulario de Django sean editables */
+.fg input, 
+.fg textarea,
+.fg select {
+  background: white !important;
+  color: #1a2e1a !important;
+  opacity: 1 !important;
+  pointer-events: auto !important;
+}
+
+/* Hover y focus */
+input:hover:not([disabled]):not([readonly]), 
+textarea:hover:not([disabled]):not([readonly]) {
+  border-color: var(--verde-md);
+}
+
+input:focus, 
+textarea:focus, 
+select:focus {
+  border-color: var(--verde);
+  box-shadow: 0 0 0 3px var(--vglow);
+  background: #fff !important;
+}
+
+textarea {
+  resize: vertical;
+  min-height: 80px;
+}
+
+/* CSS de respaldo para asegurar que los campos sean editables */
+#id_titulo, 
+#id_descripcion,
+[id^="id_titulo"],
+[id^="id_descripcion"] {
+  background-color: white !important;
+  color: #1a2e1a !important;
+  border: 1.5px solid #b8d0b8 !important;
+  padding: 10px 12px !important;
+  font-size: 13px !important;
+  opacity: 1 !important;
+  pointer-events: auto !important;
+  display: block !important;
+  width: 100% !important;
+}
+
+/* Quitar cualquier propiedad que pueda bloquear la edición */
+#id_titulo:read-only,
+#id_descripcion:read-only {
+  background-color: white !important;
+}
+
+/* Asegurar que no estén deshabilitados */
+#id_titulo:disabled,
+#id_descripcion:disabled {
+  background-color: white !important;
+  opacity: 1 !important;
+}
+</style>
+
+<script>
+  // Funcionalidad de drag & drop
+  const fileDropArea = document.getElementById('fileDropArea');
+  const fileInput = document.querySelector('#{{ form.archivo.id_for_label }}');
+  const filePreview = document.getElementById('filePreview');
+  const fileName = document.getElementById('fileName');
+  const fileSize = document.getElementById('fileSize');
+  const removeFileBtn = document.getElementById('removeFileBtn');
+  const submitBtn = document.getElementById('submitBtn');
+
+  // Prevenir comportamiento por defecto del drag
+  ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+    fileDropArea.addEventListener(eventName, preventDefaults, false);
+  });
+
+  function preventDefaults(e) {
+    e.preventDefault();
+    e.stopPropagation();
+  }
+
+  // Resaltar área cuando se arrastra un archivo
+  ['dragenter', 'dragover'].forEach(eventName => {
+    fileDropArea.addEventListener(eventName, () => {
+      fileDropArea.classList.add('drag-over');
+    });
+  });
+
+  ['dragleave', 'drop'].forEach(eventName => {
+    fileDropArea.addEventListener(eventName, () => {
+      fileDropArea.classList.remove('drag-over');
+    });
+  });
+
+  // Manejar el drop
+  fileDropArea.addEventListener('drop', (e) => {
+    const files = e.dataTransfer.files;
+    if (files.length) {
+      fileInput.files = files;
+      updateFilePreview(files[0]);
+    }
+  });
+
+  // Click en el área para abrir selector de archivos
+  fileDropArea.addEventListener('click', () => {
+    fileInput.click();
+  });
+
+  // Cuando se selecciona un archivo manualmente
+  fileInput.addEventListener('change', (e) => {
+    if (e.target.files.length) {
+      updateFilePreview(e.target.files[0]);
+    } else {
+      hidePreview();
+    }
+  });
+
+  // Remover archivo
+  removeFileBtn.addEventListener('click', () => {
+    fileInput.value = '';
+    hidePreview();
+  });
+
+  function updateFilePreview(file) {
+    // Validar tamaño (10MB = 10 * 1024 * 1024 bytes)
+    const maxSize = 10 * 1024 * 1024;
+    if (file.size > maxSize) {
+      alert('El archivo es demasiado grande. Máximo 10MB.');
+      fileInput.value = '';
+      hidePreview();
+      return;
+    }
+
+    // Mostrar preview
+    fileName.textContent = file.name;
+    
+    // Formatear tamaño
+    let sizeText = '';
+    if (file.size < 1024) {
+      sizeText = file.size + ' B';
+    } else if (file.size < 1024 * 1024) {
+      sizeText = (file.size / 1024).toFixed(1) + ' KB';
+    } else {
+      sizeText = (file.size / (1024 * 1024)).toFixed(1) + ' MB';
+    }
+    fileSize.textContent = sizeText;
+    
+    filePreview.style.display = 'block';
+    submitBtn.disabled = false;
+  }
+
+  function hidePreview() {
+    filePreview.style.display = 'none';
+    submitBtn.disabled = true;
+  }
+
+  // Validar antes de enviar
+  document.getElementById('uploadForm').addEventListener('submit', (e) => {
+    const titulo = document.querySelector('#{{ form.titulo.id_for_label }}').value.trim();
+    if (!titulo) {
+      e.preventDefault();
+      alert('Por favor ingresa un título para el documento');
+      document.querySelector('#{{ form.titulo.id_for_label }}').focus();
+      return;
+    }
+    
+    if (!fileInput.files.length) {
+      e.preventDefault();
+      alert('Por favor selecciona un archivo para subir');
+      return;
+    }
+  });
+</script>
+{% endblock %}
