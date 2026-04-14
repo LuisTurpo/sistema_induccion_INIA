@@ -138,13 +138,29 @@ def editar_personal(request, pk):
                     usuario.set_password(data['nueva_password'])
                 usuario.save()
 
-                # Actualizar trabajador
-                trabajador.cargo         = data['cargo']
-                trabajador.area          = data['area']
-                trabajador.dni           = data['dni']
-                trabajador.telefono      = data.get('telefono', '')
+                # === MANEJAR CARGO ===
+                cargo_nuevo = data.get('cargo_nuevo', '').strip()
+                if cargo_nuevo:
+                    # Si escribió un nuevo cargo, lo creamos o obtenemos
+                    cargo, _ = Cargo.objects.get_or_create(nombre=cargo_nuevo)
+                else:
+                    cargo = data['cargo']
+                
+                # === MANEJAR ÁREA ===
+                area_nueva = data.get('area_nueva', '').strip()
+                if area_nueva:
+                    # Si escribió una nueva área, la creamos o obtenemos
+                    area, _ = Area.objects.get_or_create(nombre=area_nueva)
+                else:
+                    area = data['area']
+
+                # Actualizar trabajador con los nuevos valores
+                trabajador.cargo = cargo
+                trabajador.area = area
+                trabajador.dni = data['dni']
+                trabajador.telefono = data.get('telefono', '')
                 trabajador.fecha_ingreso = data['fecha_ingreso']
-                trabajador.estado        = data['estado']
+                trabajador.estado = data['estado']
                 trabajador.save()
 
             messages.success(request, f'Datos de {usuario.get_full_name()} actualizados.')
@@ -152,6 +168,12 @@ def editar_personal(request, pk):
 
         except Exception as e:
             messages.error(request, f'Error al actualizar: {e}')
+    else:
+        # Si hay errores de validación, mostrar mensajes
+        if request.method == 'POST':
+            for field, errors in form.errors.items():
+                for error in errors:
+                    messages.error(request, f'{field}: {error}')
 
     return render(request, 'personal/crear.html', {
         'form':        form,

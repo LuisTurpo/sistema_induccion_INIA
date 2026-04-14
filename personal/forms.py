@@ -151,8 +151,20 @@ class EditarTrabajadorForm(forms.Form):
     last_name     = forms.CharField(label='Apellidos',  max_length=100)
     email         = forms.EmailField(label='Correo',    required=False)
     dni           = forms.CharField(label='DNI',        max_length=8)
-    cargo         = forms.ModelChoiceField(label='Cargo', queryset=Cargo.objects.all())
-    area          = forms.ModelChoiceField(label='Área',  queryset=Area.objects.all())
+    cargo         = forms.ModelChoiceField(label='Cargo', queryset=Cargo.objects.all(), required=False)
+    cargo_nuevo   = forms.CharField(
+        label='O escribe un cargo nuevo',
+        required=False,
+        widget=forms.TextInput(attrs={'placeholder': 'Ej: Técnico en Análisis'}),
+        help_text='Si el cargo no existe en la lista, escríbelo aquí y se creará automáticamente.'
+    )
+    area          = forms.ModelChoiceField(label='Área',  queryset=Area.objects.all(), required=False)
+    area_nueva    = forms.CharField(
+        label='O escribe un área nueva',
+        required=False,
+        widget=forms.TextInput(attrs={'placeholder': 'Ej: LABSAF ILLPA'}),
+        help_text='Si el área no existe en la lista, escríbela aquí.'
+    )
     telefono      = forms.CharField(label='Teléfono',   required=False, max_length=15)
     fecha_ingreso = forms.DateField(label='Fecha de ingreso',
                                     widget=forms.DateInput(attrs={'type': 'date'}))
@@ -171,4 +183,27 @@ class EditarTrabajadorForm(forms.Form):
         ('personal',   'Personal'),
         ('admin',      'Administrador'),
     ])
+
+    def clean_dni(self):
+        dni = self.cleaned_data['dni'].strip()
+        if not dni.isdigit():
+            raise forms.ValidationError('El DNI debe contener solo números.')
+        return dni
+
+    def clean(self):
+        cleaned = super().clean()
+        
+        # Validar que se seleccione un cargo existente O se escriba uno nuevo
+        cargo = cleaned.get('cargo')
+        cargo_nuevo = cleaned.get('cargo_nuevo', '').strip()
+        if not cargo and not cargo_nuevo:
+            self.add_error('cargo', 'Selecciona un cargo o escribe uno nuevo.')
+        
+        # Validar que se seleccione un área existente O se escriba una nueva
+        area = cleaned.get('area')
+        area_nueva = cleaned.get('area_nueva', '').strip()
+        if not area and not area_nueva:
+            self.add_error('area', 'Selecciona un área o escribe una nueva.')
+        
+        return cleaned
 

@@ -1,5 +1,6 @@
 from django import forms
-from .models import Documento
+from .models import Documento, DocumentoUsuario, HistorialLecturaExamen
+from users.models import User
 
 class DocumentoForm(forms.ModelForm):
     class Meta:
@@ -40,3 +41,22 @@ class DocumentoUsuarioForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         self.fields['titulo'].required = True
         self.fields['archivo'].required = True
+
+class HistorialLecturaExamenForm(forms.ModelForm):
+    """Formulario para editar/crear historial individual"""
+    class Meta:
+        model = HistorialLecturaExamen
+        fields = ['usuario', 'fecha_lectura', 'fecha_examen', 'nota', 'observaciones']
+        widgets = {
+            'fecha_lectura': forms.DateInput(attrs={'type': 'date'}),
+            'fecha_examen': forms.DateInput(attrs={'type': 'date'}),
+            'nota': forms.NumberInput(attrs={'min': 0, 'max': 100}),
+            'observaciones': forms.Textarea(attrs={'rows': 2}),
+        }
+
+class ImportarHistorialForm(forms.Form):
+    """Formulario para importar desde Excel/CSV"""
+    archivo_excel = forms.FileField(
+        label='Archivo Excel/CSV',
+        help_text='Formato esperado: Usuario, Documento, Fecha lectura, Fecha examen, Nota'
+    )
