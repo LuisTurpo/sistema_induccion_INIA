@@ -8,70 +8,137 @@
   </div>
 </div>
 
+<!-- Resumen rápido -->
+<div class="stats-grid" style="margin-bottom: 20px;">
+  <div class="stat c-verde">
+    <div class="stat-label">Pendientes</div>
+    <div class="stat-val">{{ pendientes|length }}</div>
+    <div class="stat-sub">Documentos por leer</div>
+  </div>
+  <div class="stat c-azul">
+    <div class="stat-label">Leídos</div>
+    <div class="stat-val">{{ leidos|length }}</div>
+    <div class="stat-sub">Completados</div>
+  </div>
+  <div class="stat c-morado">
+    <div class="stat-label">Progreso</div>
+    <div class="stat-val">
+      {% with total=pendientes|length|add:leidos|length %}
+        {% if total > 0 %}
+          {{ leidos|length|floatformat:0 }}%
+        {% else %}
+          0%
+        {% endif %}
+      {% endwith %}
+    </div>
+    <div class="stat-sub">Completado</div>
+  </div>
+</div>
+
 {% if tiene_firma %}
 <div class="alert alert-success mb-16" style="margin-bottom:16px">
-  Firmaste el Código de Ética D-03 el {{ trabajador.firma_etica.fecha_firma|date:"d/m/Y" }}. ✓
+  ✅ Firmaste el Código de Ética D-03 el {{ trabajador.firma_etica.fecha_firma|date:"d/m/Y" }}.
 </div>
 {% else %}
 <div class="alert alert-warning mb-16" style="margin-bottom:16px">
-  Debes leer todos los documentos obligatorios para poder firmar el Código de Ética D-03.
+  ⚠️ Debes leer todos los documentos obligatorios para poder firmar el Código de Ética D-03.
 </div>
 {% endif %}
 
-<div style="display:flex;flex-direction:column;gap:10px;margin-bottom:24px">
-{% for item in data %}{% if item.documento.tipo != 'etica' %}
-  <div class="card" style="border-left:3px solid {% if item.leido %}var(--verde){% elif item.porcentaje > 0 %}var(--amarillo){% else %}var(--borde2){% endif %}">
-    <div class="card-body" style="padding:14px 18px">
-      <div class="flex items-center justify-between gap-12">
-        <div style="flex:1;min-width:0">
-          <div class="flex items-center gap-8" style="margin-bottom:8px">
-            <span class="font-600">{{ item.documento.titulo }}</span>
-            {% if item.documento.obligatorio %}
-              <span class="badge b-rojo" style="font-size:10px">Obligatorio</span>
-            {% endif %}
-            <span class="badge b-gris" style="font-size:10px">{{ item.documento.get_tipo_display }}</span>
-          </div>
-          {% if item.documento.descripcion %}
-            <p class="text-xs text-muted" style="margin-bottom:8px">{{ item.documento.descripcion }}</p>
+<!-- ============================================ -->
+<!-- DOCUMENTOS PENDIENTES (POR LEER)              -->
+<!-- ============================================ -->
+{% if pendientes %}
+<div class="card mb-20">
+  <div class="card-head">
+    <div class="card-title">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="12" cy="12" r="10"/>
+        <polyline points="12,6 12,12 16,14"/>
+      </svg>
+      📖 Por leer ({{ pendientes|length }})
+    </div>
+  </div>
+  <div class="card-body" style="padding:0">
+    {% for doc in pendientes %}
+    <div class="flex items-center justify-between" style="padding: 14px 18px; border-bottom: 1px solid var(--borde);">
+      <div style="flex: 1; min-width: 0;">
+        <div class="flex items-center gap-8" style="margin-bottom: 4px; flex-wrap: wrap;">
+          <span class="font-600">{{ doc.titulo }}</span>
+          {% if doc.obligatorio %}
+            <span class="badge b-rojo" style="font-size: 10px;">Obligatorio</span>
           {% endif %}
-          <div class="flex items-center gap-12">
-            <div class="prog-bar" style="width:180px">
-              <div class="prog-fill {% if item.leido %}pf-verde{% else %}pf-azul{% endif %}"
-                   style="width:{{ item.porcentaje }}%"></div>
-            </div>
-            <span class="text-xs text-muted">{{ item.porcentaje }}% leído</span>
-            {% if item.leido %}
-              <span class="badge b-verde">✓ Leído</span>
-            {% endif %}
-          </div>
+          <span class="badge b-gris" style="font-size: 10px;">{{ doc.get_tipo_display }}</span>
         </div>
-        <a href="{% url 'induccion:leer' item.documento.pk %}"
-           class="btn {% if item.leido %}btn-ghost{% else %}btn-primary{% endif %} btn-sm">
-          {% if item.leido %}Releer{% else %}Leer documento{% endif %}
+        {% if doc.descripcion %}
+          <p class="text-xs text-muted" style="margin-bottom: 0;">{{ doc.descripcion|truncatechars:80 }}</p>
+        {% endif %}
+      </div>
+      <div style="margin-left: 16px;">
+        <a href="{% url 'induccion:leer' doc.pk %}" class="btn btn-primary btn-sm">
+          📖 Leer ahora
         </a>
       </div>
     </div>
+    {% endfor %}
   </div>
-{% endif %}{% empty %}
-  <div class="card">
-    <div class="card-body" style="text-align:center;padding:40px;color:var(--txt3)">
-      No hay documentos asignados aún. El administrador debe subir los documentos primero.
+</div>
+{% endif %}
+
+<!-- ============================================ -->
+<!-- DOCUMENTOS YA LEÍDOS                          -->
+<!-- ============================================ -->
+{% if leidos %}
+<div class="card mb-20">
+  <div class="card-head">
+    <div class="card-title">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M22 11.08V12a10 10 0 11-5.93-9.14"/>
+        <polyline points="22,4 12,14.01 9,11.01"/>
+      </svg>
+      ✅ Ya leídos ({{ leidos|length }})
     </div>
   </div>
-{% endfor %}
+  <div class="card-body" style="padding:0">
+    {% for doc in leidos %}
+    <div class="flex items-center justify-between" style="padding: 14px 18px; border-bottom: 1px solid var(--borde); background: var(--verde-lt);">
+      <div style="flex: 1; min-width: 0;">
+        <div class="flex items-center gap-8" style="margin-bottom: 4px; flex-wrap: wrap;">
+          <span class="font-600">{{ doc.titulo }}</span>
+          {% if doc.obligatorio %}
+            <span class="badge b-rojo" style="font-size: 10px;">Obligatorio</span>
+          {% endif %}
+          <span class="badge b-gris" style="font-size: 10px;">{{ doc.get_tipo_display }}</span>
+        </div>
+        {% if doc.descripcion %}
+          <p class="text-xs text-muted" style="margin-bottom: 0;">{{ doc.descripcion|truncatechars:80 }}</p>
+        {% endif %}
+      </div>
+      <div style="margin-left: 16px;">
+        <span class="badge b-verde" style="margin-right: 12px;">✓ Leído</span>
+        <a href="{% url 'induccion:leer' doc.pk %}" class="btn btn-ghost btn-sm">
+          🔄 Releer
+        </a>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
 </div>
+{% endif %}
 
-<!-- Firma código de ética -->
+<!-- ============================================ -->
+<!-- CÓDIGO DE ÉTICA - FIRMA                      -->
+<!-- ============================================ -->
 <div class="card" style="border:2px solid {% if tiene_firma %}rgba(34,197,94,.3){% else %}rgba(245,158,11,.3){% endif %}">
   <div class="card-head" style="background:{% if tiene_firma %}rgba(34,197,94,.06){% else %}rgba(245,158,11,.06){% endif %}">
     <div>
-      <span class="card-title">Código de Ética D-03 — Declaración Jurada</span>
+      <span class="card-title">📜 Código de Ética D-03 — Declaración Jurada</span>
       <div class="text-xs text-muted" style="margin-top:3px">PRO-04 §5.1 — Firma el D-03 como aceptación del código de ética</div>
     </div>
     {% if tiene_firma %}
       <span class="badge b-verde" style="font-size:12px;padding:5px 12px">✓ Firmado</span>
     {% else %}
-      <span class="badge b-amarillo" style="font-size:12px;padding:5px 12px">Pendiente</span>
+      <span class="badge b-amarillo" style="font-size:12px;padding:5px 12px">⏳ Pendiente</span>
     {% endif %}
   </div>
   <div class="card-body">
@@ -81,14 +148,62 @@
         <strong style="color:var(--txt)">{{ trabajador.firma_etica.fecha_firma|date:"d \d\e F \d\e\l Y" }}</strong>.
         IP registrada: <span class="font-mono">{{ trabajador.firma_etica.ip_address }}</span>
       </p>
+      <div class="flex gap-12 mt-16">
+        <a href="{% url 'induccion:descargar_declaracion' trabajador.pk %}" class="btn btn-primary btn-sm">
+          📄 Descargar declaración jurada
+        </a>
+        <a href="{% url 'induccion:leer' doc_etica.pk %}" class="btn btn-ghost btn-sm">
+          🔄 Releer código de ética
+        </a>
+      </div>
     {% else %}
-      <p class="text-sm text-muted" style="margin-bottom:14px">
-        Para firmar el Código de Ética debes haber leído todos los documentos obligatorios.
-      </p>
-      <a href="{% url 'induccion:firmar_etica' %}" class="btn btn-primary">
-        Leer y firmar el Código de Ética D-03 →
-      </a>
+      {% if pendientes|length == 0 %}
+        <p class="text-sm text-muted" style="margin-bottom:14px">
+          ✅ Has leído todos los documentos obligatorios. Ahora puedes firmar el Código de Ética.
+        </p>
+        <a href="{% url 'induccion:firmar_etica' %}" class="btn btn-primary">
+          ✍️ Firmar Código de Ética D-03 →
+        </a>
+      {% else %}
+        <p class="text-sm text-muted" style="margin-bottom:14px">
+          ⚠️ Para firmar el Código de Ética debes haber leído <strong>todos los documentos obligatorios</strong>.
+          Te faltan <strong>{{ pendientes|length }}</strong> documento(s) por leer.
+        </p>
+        <button class="btn btn-primary" disabled style="opacity:0.5; cursor:not-allowed;">
+          🔒 Firmar (requiere leer todos los documentos)
+        </button>
+      {% endif %}
     {% endif %}
   </div>
 </div>
+
+<!-- Mensaje si no hay documentos -->
+{% if not pendientes and not leidos %}
+<div class="card">
+  <div class="card-body" style="text-align:center;padding:40px;color:var(--txt3)">
+    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="margin-bottom:16px;">
+      <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+      <polyline points="14,2 14,8 20,8"/>
+    </svg>
+    <div style="margin-bottom:8px;">No hay documentos asignados aún.</div>
+    <div class="text-xs text-muted">El administrador debe subir los documentos primero.</div>
+  </div>
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  // Solo para efectos visuales - estadísticas
+  document.querySelectorAll('.stat').forEach(stat => {
+    stat.addEventListener('mouseenter', function() {
+      this.style.transform = 'translateY(-2px)';
+      this.style.transition = 'all 0.2s ease';
+    });
+    stat.addEventListener('mouseleave', function() {
+      this.style.transform = 'translateY(0)';
+    });
+  });
+</script>
 {% endblock %}

@@ -15,6 +15,7 @@ from django.utils import timezone
 from personal.models import Trabajador
 from documentos.models import Documento
 from .models import LecturaDocumento, FirmaEtica
+from documentos.models import HistorialLecturaExamen
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -217,20 +218,41 @@ def _generar_pdf_declaracion(trabajador, ciudad, fecha, firma_img_bytes):
 @login_required
 def mis_documentos(request):
     trabajador = get_object_or_404(Trabajador, usuario=request.user)
-    documentos = Documento.objects.filter(activo=True).exclude(tipo='etica').order_by('tipo', 'titulo')
-    data = []
-    for doc in documentos:
-        lectura, _ = LecturaDocumento.objects.get_or_create(
-            trabajador=trabajador, documento=doc,
-            defaults={'porcentaje': 0, 'leido': False}
-        )
-        data.append({'documento': doc, 'leido': lectura.leido, 'porcentaje': lectura.porcentaje})
-
+    
+    # Obtener IDs de documentos que YA leyó (tienen fecha_lectura en HistorialLecturaExamen)
+    documentos_leidos_ids = HistorialLecturaExamen.objects.filter(
+        usuario=request.user,
+        fecha_lectura__isnull=False
+    ).values_list('documento_id', flat=True)
+    
+    # Documentos activos que NO ha leído (excluyendo código de ética)
+    pendientes = Documento.objects.filter(
+        activo=True
+    ).exclude(
+        id__in=documentos_leidos_ids
+    ).exclude(
+        tipo='etica'
+    ).order_by('tipo', 'titulo')
+    
+    # Documentos que ya leyó (excluyendo código de ética)
+    leidos = Documento.objects.filter(
+        id__in=documentos_leidos_ids,
+        activo=True
+    ).exclude(
+        tipo='etica'
+    ).order_by('-fecha_subida')
+    
+    # Documento de código de ética (para el botón releer)
+    doc_etica = Documento.objects.filter(tipo='etica', activo=True).first()
+    
     tiene_firma = FirmaEtica.objects.filter(trabajador=trabajador).exists()
+    
     return render(request, 'induccion/mis_documentos.html', {
-        'trabajador':  trabajador,
-        'data':        data,
+        'trabajador': trabajador,
+        'pendientes': pendientes,
+        'leidos': leidos,
         'tiene_firma': tiene_firma,
+        'doc_etica': doc_etica,
     })
 
 
@@ -258,8 +280,23 @@ def marcar_leido(request, pk):
     lectura.porcentaje = 100
     lectura.fecha_leido = timezone.now()
     lectura.save()
+    
+    # ========== NUEVO: Sincronizar con HistorialLecturaExamen ==========
+    historial, created = HistorialLecturaExamen.objects.get_or_create(
+        usuario=request.user,
+        documento=doc,
+        defaults={
+            'fecha_lectura': timezone.now().date(),
+            'fecha_examen': None,
+            'nota': None,
+        }
+    )
+    if not created and not historial.fecha_lectura:
+        historial.fecha_lectura = timezone.now().date()
+        historial.save()
+    # ==================================================================
+    
     return JsonResponse({'ok': True})
-
 
 @login_required
 @require_POST
@@ -276,6 +313,22 @@ def actualizar_porcentaje(request, pk):
         if lectura.porcentaje >= 90 and not lectura.leido:
             lectura.leido       = True
             lectura.fecha_leido = timezone.now()
+            
+            # ========== NUEVO: Sincronizar con HistorialLecturaExamen ==========
+            historial, created = HistorialLecturaExamen.objects.get_or_create(
+                usuario=request.user,
+                documento=doc,
+                defaults={
+                    'fecha_lectura': timezone.now().date(),
+                    'fecha_examen': None,
+                    'nota': None,
+                }
+            )
+            if not created and not historial.fecha_lectura:
+                historial.fecha_lectura = timezone.now().date()
+                historial.save()
+            # ==================================================================
+            
         lectura.save()
     return JsonResponse({'porcentaje': lectura.porcentaje, 'leido': lectura.leido})
 
