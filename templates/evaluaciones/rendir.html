@@ -62,6 +62,40 @@ textarea.respuesta-abierta:focus {
   outline: none;
   border-color: var(--verde);
 }
+/* Estilos para VF en bloque */
+.vf-bloque-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--borde);
+}
+.vf-bloque-item:last-child {
+  border-bottom: none;
+}
+.vf-bloque-texto {
+  flex: 1;
+  font-size: 13px;
+  color: var(--txt);
+  padding-right: 16px;
+}
+.vf-bloque-opciones {
+  display: flex;
+  gap: 16px;
+  flex-shrink: 0;
+}
+.vf-bloque-opciones label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--txt2);
+}
+.vf-bloque-opciones input {
+  accent-color: var(--verde);
+  margin: 0;
+}
 </style>
 {% endblock %}
 {% block content %}
@@ -93,7 +127,7 @@ textarea.respuesta-abierta:focus {
     
     {% for pregunta in preguntas %}
     <div class="pregunta-card">
-      <div class="preg-num">Pregunta {{ forloop.counter }} de {{ preguntas|length }}</div>
+      <div class="preg-num">Pregunta {{ forloop.counter }} de {{ preguntas|length }} · {{ pregunta.puntaje }} pts</div>
       <div class="preg-txt">{{ pregunta.enunciado }}</div>
 
       {% if pregunta.tipo == 'abierta' %}
@@ -103,11 +137,6 @@ textarea.respuesta-abierta:focus {
                   rows="4" 
                   placeholder="Escribe tu respuesta aquí..."
                   required></textarea>
-        {% if pregunta.respuesta_esperada %}
-        <div class="hint" style="margin-top:8px;font-size:11px;color:var(--txt3)">
-          💡 Pista: {{ pregunta.respuesta_esperada|truncatewords:8 }}
-        </div>
-        {% endif %}
 
       {% elif pregunta.tipo == 'vf' %}
         <!-- ✅❌ VERDADERO / FALSO -->
@@ -123,7 +152,28 @@ textarea.respuesta-abierta:focus {
         </div>
         {% endfor %}
 
-      {% else %}
+      {% elif pregunta.tipo == 'vf_bloque' %}
+        <!-- 📋 VF EN BLOQUE (NUEVO) -->
+        <div class="vf-bloque">
+          <div class="text-xs text-muted mb-12" style="margin-bottom: 12px;">Marque Verdadero o Falso para cada afirmación:</div>
+          {% for sub in pregunta.subpreguntas %}
+          <div class="vf-bloque-item">
+            <div class="vf-bloque-texto">{{ sub.texto }}</div>
+            <div class="vf-bloque-opciones">
+              <label>
+                <input type="radio" name="pregunta_{{ pregunta.id }}_sub_{{ forloop.counter0 }}" value="true" required>
+                Verdadero
+              </label>
+              <label>
+                <input type="radio" name="pregunta_{{ pregunta.id }}_sub_{{ forloop.counter0 }}" value="false" required>
+                Falso
+              </label>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+
+      {% elif pregunta.tipo == 'multiple' %}
         <!-- 🔘 OPCIÓN MÚLTIPLE -->
         {% for opcion in pregunta.opciones.all %}
         <div class="opcion-wrap">
@@ -136,6 +186,31 @@ textarea.respuesta-abierta:focus {
           </label>
         </div>
         {% endfor %}
+      
+      {% elif pregunta.tipo == 'multiple_respuesta' %}
+        <!-- ☑️ MÚLTIPLE RESPUESTA -->
+        <div class="text-xs text-muted mb-12">Selecciona todas las opciones correctas:</div>
+        {% for opcion in pregunta.opciones.all %}
+        <div class="opcion-wrap">
+          <input type="checkbox" name="pregunta_{{ pregunta.id }}_opciones" 
+                 value="{{ opcion.id }}" 
+                 id="preg{{ pregunta.id }}_op{{ opcion.id }}">
+          <label class="opcion-label" for="preg{{ pregunta.id }}_op{{ opcion.id }}">
+            {{ opcion.texto }}
+          </label>
+        </div>
+        {% endfor %}
+
+      {% elif pregunta.tipo == 'lista' %}
+        <!-- 📋 LISTAR ELEMENTOS -->
+        <textarea name="pregunta_{{ pregunta.id }}" 
+                  class="respuesta-abierta" 
+                  rows="3" 
+                  placeholder="Ej: elemento1, elemento2, elemento3"
+                  required></textarea>
+        <div class="hint" style="margin-top:8px;font-size:11px;color:var(--txt3)">
+          💡 Separa cada elemento con una coma (,)
+        </div>
       {% endif %}
     </div>
     {% endfor %}
@@ -170,34 +245,44 @@ const iv = setInterval(() => {
 {% endif %}
 
 document.getElementById('btn-enviar').addEventListener('click', function(e) {
-  // Validar que todas las preguntas tengan respuesta
-  const radios = document.querySelectorAll('input[type="radio"]');
-  const texts = document.querySelectorAll('textarea');
   let allAnswered = true;
+  let firstUnanswered = null;
   
-  // Para cada pregunta, verificar si tiene respuesta
+  // Validar todas las preguntas
   {% for pregunta in preguntas %}
-    if ({{ forloop.counter0 }} === 0) { // Solo ejemplo, mejor hacerlo con JS puro
-      const name = 'pregunta_{{ pregunta.id }}';
-      const radiosForQ = document.querySelectorAll('input[name="' + name + '"]');
-      const textForQ = document.querySelector('textarea[name="' + name + '"]');
-      
-      if (radiosForQ.length > 0) {
-        const checked = Array.from(radiosForQ).some(r => r.checked);
-        if (!checked) {
+    {% if pregunta.tipo == 'vf_bloque' %}
+      // Validar VF en bloque
+      {% for sub in pregunta.subpreguntas %}
+        const radioName{{ pregunta.id }}_{{ forloop.counter0 }} = 'pregunta_{{ pregunta.id }}_sub_{{ forloop.counter0 }}';
+        const radios{{ pregunta.id }}_{{ forloop.counter0 }} = document.querySelectorAll('input[name="' + radioName{{ pregunta.id }}_{{ forloop.counter0 }} + '"]');
+        const checked{{ pregunta.id }}_{{ forloop.counter0 }} = Array.from(radios{{ pregunta.id }}_{{ forloop.counter0 }}).some(r => r.checked);
+        if (!checked{{ pregunta.id }}_{{ forloop.counter0 }}) {
           allAnswered = false;
-          alert('Por favor responde la pregunta {{ forloop.counter }}');
-          e.preventDefault();
-          return false;
+          firstUnanswered = firstUnanswered || 'Pregunta {{ forloop.parentloop.counter }} - Afirmación {{ forloop.counter }}';
         }
-      } else if (textForQ && textForQ.value.trim() === '') {
+      {% endfor %}
+    {% elif pregunta.tipo == 'multiple' or pregunta.tipo == 'vf' %}
+      const radioName{{ pregunta.id }} = 'pregunta_{{ pregunta.id }}';
+      const radios{{ pregunta.id }} = document.querySelectorAll('input[name="' + radioName{{ pregunta.id }} + '"]');
+      const checked{{ pregunta.id }} = Array.from(radios{{ pregunta.id }}).some(r => r.checked);
+      if (!checked{{ pregunta.id }}) {
         allAnswered = false;
-        alert('Por favor responde la pregunta {{ forloop.counter }}');
-        e.preventDefault();
-        return false;
+        firstUnanswered = firstUnanswered || 'Pregunta {{ forloop.counter }}';
       }
-    }
+    {% elif pregunta.tipo == 'abierta' or pregunta.tipo == 'lista' %}
+      const textarea{{ pregunta.id }} = document.querySelector('textarea[name="pregunta_{{ pregunta.id }}"]');
+      if (textarea{{ pregunta.id }} && textarea{{ pregunta.id }}.value.trim() === '') {
+        allAnswered = false;
+        firstUnanswered = firstUnanswered || 'Pregunta {{ forloop.counter }}';
+      }
+    {% endif %}
   {% endfor %}
+  
+  if (!allAnswered) {
+    e.preventDefault();
+    alert('Por favor responde todas las preguntas. Falta: ' + firstUnanswered);
+    return false;
+  }
   
   if (allAnswered) {
     setTimeout(() => { 

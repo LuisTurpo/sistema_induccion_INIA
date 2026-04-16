@@ -104,25 +104,27 @@ def agregar_pregunta(request, pk):
                             es_correcta=(i == correcta_idx),
                         )
 
-            # ✅❌ VERDADERO / FALSO
-            elif tipo == 'vf':
-                correcta = request.POST.get('vf_correcta')  # "true" o "false"
 
-                Opcion.objects.create(
-                    pregunta=pregunta,
-                    texto="Verdadero",
-                    es_correcta=(correcta == "true")
-                )
-                Opcion.objects.create(
-                    pregunta=pregunta,
-                    texto="Falso",
-                    es_correcta=(correcta == "false")
-                )
+            # 📋 VF EN BLOQUE (CORREGIDO)
+            elif tipo == 'vf_bloque':
+                textos = request.POST.getlist('subpregunta_texto[]')
+                correctas = request.POST.getlist('subpregunta_correcta[]')
+                
+                subpreguntas = []
+                for i, texto in enumerate(textos):
+                    if texto.strip():
+                        # ✅ CORREGIDO: comparar correctamente el valor
+                        es_correcta = (correctas[i] == 'true')
+                        subpreguntas.append({
+                            'texto': texto,
+                            'correcta': es_correcta
+                        })
+                pregunta.subpreguntas = subpreguntas
+                pregunta.save()
 
             # ✍️ ABIERTA
             elif tipo == 'abierta':
                 respuesta = request.POST.get('respuesta_abierta', '').strip()
-
                 Opcion.objects.create(
                     pregunta=pregunta,
                     texto=respuesta,
@@ -239,13 +241,12 @@ def rendir_evaluacion(request, pk):
 
     ev = get_object_or_404(Evaluacion, pk=pk, activa=True)
 
-    # Verificar que aplica a su cargo
     if trabajador.cargo and not ev.aplica_a_cargo(trabajador.cargo):
         messages.error(request, 'Esta evaluación no corresponde a tu cargo.')
         return redirect('evaluaciones:mis_evaluaciones')
 
-    intentos_prev  = Intento.objects.filter(trabajador=trabajador, evaluacion=ev)
-    num_intentos   = intentos_prev.count()
+    intentos_prev = Intento.objects.filter(trabajador=trabajador, evaluacion=ev)
+    num_intentos = intentos_prev.count()
 
     if intentos_prev.filter(aprobado=True).exists():
         messages.info(request, 'Ya aprobaste esta evaluación.')
@@ -260,21 +261,52 @@ def rendir_evaluacion(request, pk):
         messages.error(request, 'Esta evaluación no tiene preguntas aún.')
         return redirect('evaluaciones:mis_evaluaciones')
 
-    # ✅ CORRECCIÓN AQUÍ: eliminamos form y validación con is_valid()
     if request.method == 'POST':
         intento = Intento.objects.create(
             trabajador=trabajador,
             evaluacion=ev,
             numero_intento=num_intentos + 1,
+            estado='finalizado'
         )
         puntaje_total = 0
-        puntaje_max   = sum(float(p.puntaje) for p in preguntas)
+        puntaje_max = sum(float(p.puntaje) for p in preguntas)
 
         for pregunta in preguntas:
-            # ✍️ ABIERTA
-            if pregunta.tipo == 'abierta':
-                respuesta_texto = request.POST.get(f'pregunta_{pregunta.pk}', '').strip()
+            # 📋 VF EN BLOQUE (NUEVO)
+            if pregunta.tipo == 'vf_bloque':
+                respuestas_usuario = []
+                for i, sub in enumerate(pregunta.subpreguntas):
+                    valor = request.POST.get(f'pregunta_{pregunta.pk}_sub_{i}')
+                    es_correcta = (valor == 'true')
+                    respuestas_usuario.append(es_correcta)
+                
+                # Calcular puntaje
+                correctas = 0
+                for i, resp in enumerate(respuestas_usuario):
+                    if resp == pregunta.subpreguntas[i].get('correcta', False):
+                        correctas += 1
+                
+                total_sub = len(pregunta.subpreguntas)
+                if total_sub > 0:
+                    puntaje_pregunta = (correctas / total_sub) * float(pregunta.puntaje)
+                else:
+                    puntaje_pregunta = 0
+                
+                puntaje_total += puntaje_pregunta
+                
+                # Guardar respuesta
+                RespuestaIntento.objects.create(
+                    intento=intento,
+                    pregunta=pregunta,
+                    opciones_seleccionadas=respuestas_usuario,
+                    puntaje_obtenido=puntaje_pregunta,
+                    calificada=True,
+                    correcta=(correctas == total_sub)
+                )
 
+            # ✍️ ABIERTA
+            elif pregunta.tipo == 'abierta':
+                respuesta_texto = request.POST.get(f'pregunta_{pregunta.pk}', '').strip()
                 correcta = False
                 opcion_correcta = pregunta.opciones.first()
 
@@ -288,13 +320,15 @@ def rendir_evaluacion(request, pk):
                     intento=intento,
                     pregunta=pregunta,
                     opcion=opcion_correcta,
+                    respuesta_texto=respuesta_texto,
                     correcta=correcta,
+                    puntaje_obtenido=float(pregunta.puntaje) if correcta else 0,
+                    calificada=True
                 )
 
             # 🔘 MÚLTIPLE y VF
             else:
-                opcion_id = request.POST.get(f'pregunta_{pregunta.pk}')   # ✅ cambiado a request.POST
-
+                opcion_id = request.POST.get(f'pregunta_{pregunta.pk}')
                 if opcion_id:
                     opcion = get_object_or_404(Opcion, pk=opcion_id)
                     correcta = opcion.es_correcta
@@ -307,6 +341,8 @@ def rendir_evaluacion(request, pk):
                         pregunta=pregunta,
                         opcion=opcion,
                         correcta=correcta,
+                        puntaje_obtenido=float(pregunta.puntaje) if correcta else 0,
+                        calificada=True
                     )
 
         nota = round((puntaje_total / puntaje_max) * 20, 1) if puntaje_max > 0 else 0
@@ -319,7 +355,6 @@ def rendir_evaluacion(request, pk):
 
         return redirect('evaluaciones:resultado', pk=intento.pk)
 
-    # ✅ GET: solo mostrar el formulario (sin validación Django)
     return render(request, 'evaluaciones/rendir.html', {
         'evaluacion': ev,
         'preguntas': preguntas,
