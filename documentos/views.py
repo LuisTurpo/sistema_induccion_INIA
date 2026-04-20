@@ -1,18 +1,20 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
-from django.http import JsonResponse
-from django.views.decorators.csrf import csrf_exempt
-from django.views.decorators.http import require_http_methods
-from django.core.paginator import Paginator
-from django.db.models import Q
-from .models import Documento, DocumentoUsuario, HistorialLecturaExamen
-from .forms import DocumentoForm, DocumentoUsuarioForm, HistorialLecturaExamenForm, ImportarHistorialForm
+from django.http import JsonResponse, HttpResponse
+from django.conf import settings
+from .models import Documento, DocumentoUsuario, HistorialLecturaExamen, RecepcionDocumento
+from .forms import DocumentoForm, DocumentoUsuarioForm
 from users.models import User
-import json
+from personal.models import Trabajador
+import openpyxl
+from openpyxl.styles import Font, Alignment, Border, Side, PatternFill
+from openpyxl.drawing.image import Image as XLImage
+import os
 from datetime import datetime
 
-# ========== FUNCIONES EXISTENTES (TUS CÓDIGOS ORIGINALES) ==========
+
+# ========== DOCUMENTOS GENERALES ==========
 
 @login_required
 def lista_documentos(request):
@@ -22,11 +24,11 @@ def lista_documentos(request):
     documentos = Documento.objects.all().order_by('-fecha_subida')
     return render(request, 'documentos/lista.html', {'documentos': documentos})
 
+
 @login_required
 def subir_documento(request):
     if not request.user.es_admin:
         return redirect('dashboard')
-
     form = DocumentoForm(request.POST or None, request.FILES or None)
     if request.method == 'POST' and form.is_valid():
         doc = form.save(commit=False)
@@ -34,51 +36,21 @@ def subir_documento(request):
         doc.save()
         messages.success(request, f'Documento "{doc.titulo}" subido correctamente.')
         return redirect('documentos:lista')
+    return render(request, 'documentos/form.html', {'form': form, 'titulo': 'Subir documento PDF'})
 
-    return render(request, 'documentos/form.html', {
-        'form':   form,
-        'titulo': 'Subir documento PDF',
-    })
-
-@login_required
-def subir_documento_usuario(request):
-    if request.method == 'POST':
-        form = DocumentoUsuarioForm(request.POST, request.FILES)
-        if form.is_valid():
-            doc = form.save(commit=False)
-            doc.usuario = request.user
-            doc.save()
-            messages.success(request, 'Documento subido correctamente. Queda pendiente de revisión.')
-            return redirect('documentos:mis_documentos')
-    else:
-        form = DocumentoUsuarioForm()
-    
-    return render(request, 'documentos/subir_usuario.html', {'form': form})
-
-@login_required
-def revisar_documentos_usuario(request):
-    if not request.user.es_admin:
-        return redirect('dashboard')
-
-    documentos = DocumentoUsuario.objects.all().order_by('-fecha_subida')
-    return render(request, 'documentos/revisar_usuario.html', {'documentos': documentos})
 
 @login_required
 def editar_documento(request, pk):
     if not request.user.es_admin:
         return redirect('dashboard')
-
-    doc  = get_object_or_404(Documento, pk=pk)
+    doc = get_object_or_404(Documento, pk=pk)
     form = DocumentoForm(request.POST or None, request.FILES or None, instance=doc)
     if request.method == 'POST' and form.is_valid():
         form.save()
         messages.success(request, 'Documento actualizado.')
         return redirect('documentos:lista')
+    return render(request, 'documentos/form.html', {'form': form, 'titulo': 'Editar documento'})
 
-    return render(request, 'documentos/form.html', {
-        'form':   form,
-        'titulo': 'Editar documento',
-    })
 
 @login_required
 def eliminar_documento(request, pk):
@@ -89,237 +61,173 @@ def eliminar_documento(request, pk):
     messages.success(request, 'Documento eliminado.')
     return redirect('documentos:lista')
 
+
 @login_required
 def ver_documento(request, pk):
-    """El trabajador abre el PDF en el navegador."""
     doc = get_object_or_404(Documento, pk=pk, activo=True)
     return render(request, 'documentos/ver.html', {'doc': doc})
 
-@login_required
-def cambiar_estado_documento(request, pk, estado):
-    if not request.user.es_admin:
-        return redirect('dashboard')
 
-    doc = get_object_or_404(DocumentoUsuario, pk=pk)
-    doc.estado = estado
-    
-    observacion = request.GET.get('observacion', '')
-    if observacion:
-        doc.observacion = observacion
-    
-    from django.utils import timezone
-    doc.fecha_revision = timezone.now()
-    doc.save()
-    
-    messages.success(request, f'Documento "{doc.titulo}" ha sido {estado}.')
-    return redirect('documentos:revisar_documentos_usuario')
+# ========== DOCUMENTOS DE USUARIO ==========
+
+@login_required
+def subir_documento_usuario(request):
+    if request.method == 'POST':
+        form = DocumentoUsuarioForm(request.POST, request.FILES)
+        if form.is_valid():
+            doc = form.save(commit=False)
+            doc.usuario = request.user
+            doc.save()
+            messages.success(request, 'Documento subido correctamente.')
+            return redirect('documentos:mis_documentos')
+    else:
+        form = DocumentoUsuarioForm()
+    return render(request, 'documentos/subir_usuario.html', {'form': form})
+
 
 @login_required
 def mis_documentos(request):
     documentos = DocumentoUsuario.objects.filter(usuario=request.user)
     return render(request, 'documentos/mis_documentos.html', {'documentos': documentos})
 
-# ========== NUEVAS FUNCIONES PARA HISTORIAL DE LECTURAS/EXÁMENES ==========
 
 @login_required
-def historial_documento(request, documento_id):
-    """Vista principal del historial de lecturas/exámenes para un documento"""
+def revisar_documentos_usuario(request):
     if not request.user.es_admin:
-        messages.error(request, 'No tienes permiso para acceder a esta sección.')
         return redirect('dashboard')
-    
-    documento = get_object_or_404(Documento, pk=documento_id)
-    return render(request, 'documentos/historial.html', {
-        'documento': documento,
-    })
+    documentos = DocumentoUsuario.objects.all().order_by('-fecha_subida')
+    return render(request, 'documentos/revisar_usuario.html', {'documentos': documentos})
+
 
 @login_required
-def obtener_historial_api(request, documento_id):
-    """API para obtener todos los registros de historial de un documento"""
+def cambiar_estado_documento(request, pk, estado):
     if not request.user.es_admin:
-        return JsonResponse({'success': False, 'error': 'No autorizado'}, status=403)
-    
-    documento = get_object_or_404(Documento, pk=documento_id)
-    historiales = HistorialLecturaExamen.objects.filter(documento=documento)
-    
-    data = []
-    for h in historiales:
-        data.append({
-            'id': h.id,
-            'usuario': h.usuario.username,
-            'usuario_nombre': h.usuario.get_full_name() or h.usuario.username,
-            'fechaLectura': h.fecha_lectura.strftime('%Y-%m-%d') if h.fecha_lectura else '',
-            'fechaExamen': h.fecha_examen.strftime('%Y-%m-%d') if h.fecha_examen else '',
-            'nota': h.nota if h.nota else '',
-            'observaciones': h.observaciones or '',
-        })
-    
-    return JsonResponse({'success': True, 'data': data})
+        return redirect('dashboard')
+    doc = get_object_or_404(DocumentoUsuario, pk=pk)
+    doc.estado = estado
+    observacion = request.GET.get('observacion', '')
+    if observacion:
+        doc.observacion = observacion
+    from django.utils import timezone
+    doc.fecha_revision = timezone.now()
+    doc.save()
+    messages.success(request, f'Documento "{doc.titulo}" ha sido {estado}.')
+    return redirect('documentos:revisar_documentos_usuario')
 
-@csrf_exempt
-@login_required
-@require_http_methods(["POST"])
-def guardar_historial_api(request, documento_id):
-    """API para guardar todos los cambios del historial"""
-    if not request.user.es_admin:
-        return JsonResponse({'success': False, 'error': 'No autorizado'}, status=403)
-    
-    try:
-        data = json.loads(request.body)
-        historiales = data.get('historial', [])
-        documento = get_object_or_404(Documento, pk=documento_id)
-        
-        for item in historiales:
-            # Obtener o crear el registro
-            usuario = User.objects.get(username=item['usuario'])
-            
-            historial, created = HistorialLecturaExamen.objects.update_or_create(
-                usuario=usuario,
-                documento=documento,
-                defaults={
-                    'fecha_lectura': item.get('fechaLectura') or None,
-                    'fecha_examen': item.get('fechaExamen') or None,
-                    'nota': int(item['nota']) if item.get('nota') and item['nota'] != '' else None,
-                    'observaciones': item.get('observaciones', ''),
-                    'actualizado_por': request.user,
-                }
-            )
-            
-            if created:
-                historial.creado_por = request.user
-                historial.save()
-        
-        messages.success(request, f'Historial de "{documento.titulo}" guardado correctamente.')
-        return JsonResponse({'success': True, 'message': 'Guardado correctamente'})
-        
-    except User.DoesNotExist as e:
-        return JsonResponse({'success': False, 'error': f'Usuario no encontrado: {str(e)}'})
-    except Exception as e:
-        return JsonResponse({'success': False, 'error': str(e)})
+
+# ========== FORMATO F-03 EN EXCEL ==========
 
 @login_required
-def lista_usuarios_api(request):
-    """API para obtener lista de usuarios activos"""
-    if not request.user.es_admin:
-        return JsonResponse({'success': False, 'error': 'No autorizado'}, status=403)
-    
-    usuarios = User.objects.filter(is_active=True).order_by('username')
-    data = [{'id': u.id, 'nombre': u.username, 'nombre_completo': u.get_full_name() or u.username} for u in usuarios]
-    return JsonResponse({'success': True, 'usuarios': data})
-
-@login_required
-def eliminar_registro_historial(request, registro_id):
-    """Eliminar un registro de historial específico"""
-    if not request.user.es_admin:
-        return JsonResponse({'success': False, 'error': 'No autorizado'}, status=403)
-    
-    registro = get_object_or_404(HistorialLecturaExamen, pk=registro_id)
-    documento_titulo = registro.documento.titulo
-    usuario_nombre = registro.usuario.get_full_name()
-    registro.delete()
-    
-    messages.success(request, f'Registro de "{usuario_nombre}" - "{documento_titulo}" eliminado.')
-    return JsonResponse({'success': True, 'message': 'Eliminado correctamente'})
-
-@login_required
-def importar_historial_excel(request, documento_id):
-    """Importar historial desde archivo Excel/CSV"""
+def generar_f03(request, trabajador_pk):
+    """Genera el Formato F-03 - Cargo de Recepción de Documentos en Excel"""
     if not request.user.es_admin:
         messages.error(request, 'No tienes permiso.')
         return redirect('dashboard')
     
-    documento = get_object_or_404(Documento, pk=documento_id)
+    trabajador = get_object_or_404(Trabajador, pk=trabajador_pk)
+    recepciones = RecepcionDocumento.objects.filter(
+        trabajador=trabajador, 
+        firmado=True
+    ).select_related('documento').order_by('fecha_recepcion')
     
-    if request.method == 'POST':
-        form = ImportarHistorialForm(request.POST, request.FILES)
-        if form.is_valid():
-            archivo = request.FILES['archivo_excel']
-            
-            # Intentar importar según extensión
-            if archivo.name.endswith('.csv'):
-                import csv
-                decoded_file = archivo.read().decode('utf-8').splitlines()
-                reader = csv.DictReader(decoded_file)
-                
-                importados = 0
-                errores = []
-                
-                for row in reader:
-                    try:
-                        username = row.get('Usuario', row.get('usuario', ''))
-                        fecha_lectura = row.get('Fecha lectura', row.get('fecha_lectura', ''))
-                        fecha_examen = row.get('Fecha examen', row.get('fecha_examen', ''))
-                        nota = row.get('Nota', row.get('nota', ''))
-                        
-                        usuario = User.objects.get(username=username)
-                        
-                        HistorialLecturaExamen.objects.update_or_create(
-                            usuario=usuario,
-                            documento=documento,
-                            defaults={
-                                'fecha_lectura': datetime.strptime(fecha_lectura, '%Y-%m-%d').date() if fecha_lectura else None,
-                                'fecha_examen': datetime.strptime(fecha_examen, '%Y-%m-%d').date() if fecha_examen else None,
-                                'nota': int(nota) if nota and nota.isdigit() else None,
-                                'creado_por': request.user,
-                                'actualizado_por': request.user,
-                            }
-                        )
-                        importados += 1
-                    except Exception as e:
-                        errores.append(f"Error con fila: {row} - {str(e)}")
-                
-                if errores:
-                    messages.warning(request, f'Se importaron {importados} registros, pero hubo {len(errores)} errores.')
+    # Crear libro de Excel
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "F-03 Recepción Documentos"
+    
+    # Estilos
+    header_font = Font(bold=True, size=11, color="FFFFFF")
+    header_fill = PatternFill(start_color="2d7a2d", end_color="2d7a2d", fill_type="solid")
+    header_alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+    cell_alignment = Alignment(horizontal="center", vertical="center")
+    thin_border = Border(
+        left=Side(style='thin'),
+        right=Side(style='thin'),
+        top=Side(style='thin'),
+        bottom=Side(style='thin')
+    )
+    
+    # Título
+    ws.merge_cells('A1:F1')
+    ws['A1'] = 'CARGO DE RECEPCIÓN DE DOCUMENTOS'
+    ws['A1'].font = Font(bold=True, size=14)
+    ws['A1'].alignment = Alignment(horizontal="center")
+    
+    # Subtítulo
+    ws.merge_cells('A2:F2')
+    ws['A2'] = f'Formato F-03 - Trabajador: {trabajador.usuario.get_full_name()} - DNI: {trabajador.dni}'
+    ws['A2'].font = Font(size=10)
+    ws['A2'].alignment = Alignment(horizontal="center")
+    
+    # Encabezados de la tabla
+    headers = ['Nº', 'FECHA DE ENTREGA / RECEPCIÓN', 'CÓDIGO/ NOMBRE DEL DOCUMENTO', 'VERSIÓN', 'RECIBIDO POR:', 'N° COPIAS']
+    for col, header in enumerate(headers, 1):
+        cell = ws.cell(row=4, column=col, value=header)
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.alignment = header_alignment
+        cell.border = thin_border
+    
+    # Datos
+    row = 5
+    for i, rec in enumerate(recepciones, 1):
+        # Columna Nº
+        ws.cell(row=row, column=1, value=i).border = thin_border
+        ws.cell(row=row, column=1).alignment = cell_alignment
+        
+        # Columna FECHA
+        ws.cell(row=row, column=2, value=rec.fecha_recepcion.strftime('%d/%m/%Y')).border = thin_border
+        ws.cell(row=row, column=2).alignment = cell_alignment
+        
+        # Columna DOCUMENTO
+        ws.cell(row=row, column=3, value=rec.documento.titulo).border = thin_border
+        ws.cell(row=row, column=3).alignment = Alignment(horizontal="left", vertical="center")
+        
+        # Columna VERSIÓN
+        version = getattr(rec.documento, 'version', 'v01')
+        ws.cell(row=row, column=4, value=version).border = thin_border
+        ws.cell(row=row, column=4).alignment = cell_alignment
+        
+        # Columna RECIBIDO POR (Firma)
+        if rec.firma_imagen:
+            try:
+                firma_path = os.path.join(settings.MEDIA_ROOT, rec.firma_imagen)
+                if os.path.exists(firma_path):
+                    img = XLImage(firma_path)
+                    img.width = 80
+                    img.height = 30
+                    cell_coord = f'E{row}'
+                    ws.add_image(img, cell_coord)
+                    ws.row_dimensions[row].height = 35
+                    ws.cell(row=row, column=5, value="").border = thin_border
                 else:
-                    messages.success(request, f'✅ Se importaron {importados} registros correctamente.')
-            
-            elif archivo.name.endswith(('.xlsx', '.xls')):
-                # Para Excel necesitas instalar: pip install openpyxl
-                try:
-                    import openpyxl
-                    workbook = openpyxl.load_workbook(archivo)
-                    sheet = workbook.active
-                    
-                    # Asumir que primera fila son encabezados
-                    headers = [cell.value for cell in sheet[1]]
-                    
-                    importados = 0
-                    for row in sheet.iter_rows(min_row=2, values_only=True):
-                        try:
-                            row_dict = dict(zip(headers, row))
-                            username = row_dict.get('Usuario', row_dict.get('usuario', ''))
-                            fecha_lectura = row_dict.get('Fecha lectura', row_dict.get('fecha_lectura', ''))
-                            fecha_examen = row_dict.get('Fecha examen', row_dict.get('fecha_examen', ''))
-                            nota = row_dict.get('Nota', row_dict.get('nota', ''))
-                            
-                            usuario = User.objects.get(username=username)
-                            
-                            HistorialLecturaExamen.objects.update_or_create(
-                                usuario=usuario,
-                                documento=documento,
-                                defaults={
-                                    'fecha_lectura': fecha_lectura if isinstance(fecha_lectura, datetime) else None,
-                                    'fecha_examen': fecha_examen if isinstance(fecha_examen, datetime) else None,
-                                    'nota': int(nota) if nota and str(nota).isdigit() else None,
-                                    'creado_por': request.user,
-                                    'actualizado_por': request.user,
-                                }
-                            )
-                            importados += 1
-                        except Exception as e:
-                            pass
-                    
-                    messages.success(request, f'✅ Se importaron {importados} registros desde Excel.')
-                except ImportError:
-                    messages.error(request, 'Para importar Excel necesitas instalar openpyxl: pip install openpyxl')
-            else:
-                messages.error(request, 'Formato no soportado. Usa CSV o Excel (.xlsx)')
-            
-            return redirect('documentos:historial_documento', documento_id=documento_id)
-    else:
-        form = ImportarHistorialForm()
+                    ws.cell(row=row, column=5, value="Firmado digitalmente").border = thin_border
+                    ws.cell(row=row, column=5).alignment = cell_alignment
+            except Exception:
+                ws.cell(row=row, column=5, value="Firmado digitalmente").border = thin_border
+                ws.cell(row=row, column=5).alignment = cell_alignment
+        else:
+            ws.cell(row=row, column=5, value="Firmado digitalmente").border = thin_border
+            ws.cell(row=row, column=5).alignment = cell_alignment
+        
+        # Columna COPIAS
+        ws.cell(row=row, column=6, value=1).border = thin_border
+        ws.cell(row=row, column=6).alignment = cell_alignment
+        
+        row += 1
     
-    return render(request, 'documentos/importar_historial.html', {
-        'form': form,
-        'documento': documento,
-    })
+    # Ajustar anchos de columna
+    ws.column_dimensions['A'].width = 5
+    ws.column_dimensions['B'].width = 22
+    ws.column_dimensions['C'].width = 45
+    ws.column_dimensions['D'].width = 12
+    ws.column_dimensions['E'].width = 18
+    ws.column_dimensions['F'].width = 10
+    
+    # Crear respuesta HTTP
+    filename = f"F-03_{trabajador.usuario.last_name}_{trabajador.dni}.xlsx"
+    response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    wb.save(response)
+    
+    return response

@@ -65,3 +65,28 @@ class HistorialLecturaExamen(models.Model):
 
     def __str__(self):
         return f"{self.usuario.get_full_name()} - {self.documento.titulo} - Lectura: {self.fecha_lectura or 'Pendiente'}"
+    
+class RecepcionDocumento(models.Model):
+    """Registro de recepción de documentos por trabajador (Formato F-03)"""
+    
+    trabajador = models.ForeignKey(
+        'personal.Trabajador', 
+        on_delete=models.CASCADE,
+        related_name='recepciones_documentos'
+    )
+    documento = models.ForeignKey(
+        'Documento', 
+        on_delete=models.CASCADE,
+        related_name='recepciones'
+    )
+    fecha_recepcion = models.DateTimeField(auto_now_add=True)
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+    firma_imagen = models.CharField(max_length=500, blank=True, null=True)
+    firmado = models.BooleanField(default=False)
+    
+    class Meta:
+        unique_together = ('trabajador', 'documento')
+        ordering = ['-fecha_recepcion']
+    
+    def __str__(self):
+        return f"{self.trabajador} - {self.documento.titulo}"
