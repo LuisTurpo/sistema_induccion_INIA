@@ -12,6 +12,8 @@ from docx.shared import Cm
 from docx.oxml.ns import qn
 from docx.oxml import OxmlElement
 import os
+import json
+from django.views.decorators.http import require_POST
 from datetime import datetime
 
 
@@ -249,3 +251,73 @@ def historial_documento(request, pk):
         'documento': documento,
         'historial': historial,
     })
+
+@login_required
+def api_usuarios(request):
+    if not request.user.es_admin:
+        return JsonResponse({'success': False})
+
+    trabajadores = Trabajador.objects.select_related('usuario').all()
+
+    usuarios = []
+    for t in trabajadores:
+        usuarios.append({
+            'id': t.usuario.id,
+            'nombre': t.usuario.username,
+            'nombre_completo': t.usuario.get_full_name() or t.usuario.username
+        })
+
+    return JsonResponse({
+        'success': True,
+        'usuarios': usuarios
+    })
+
+
+@login_required
+def api_historial_documento(request, pk):
+    if not request.user.es_admin:
+        return JsonResponse({'success': False})
+
+    historial = HistorialLecturaExamen.objects.filter(documento_id=pk)
+
+    data = []
+    for h in historial:
+        data.append({
+            'usuario': h.usuario.username,
+            'fechaLectura': h.fecha_lectura.strftime('%Y-%m-%d') if h.fecha_lectura else ''
+        })
+
+    return JsonResponse({
+        'success': True,
+        'data': data
+    })
+
+
+@login_required
+@require_POST
+def guardar_historial_documento(request, pk):
+    if not request.user.es_admin:
+        return JsonResponse({'success': False, 'error': 'Sin permiso'})
+
+    try:
+        body = json.loads(request.body)
+        historial = body.get('historial', [])
+
+        for item in historial:
+            username = item['usuario']
+            fecha = item['fechaLectura']
+
+            user = User.objects.get(username=username)
+
+            obj, created = HistorialLecturaExamen.objects.get_or_create(
+                usuario=user,
+                documento_id=pk
+            )
+
+            obj.fecha_lectura = fecha
+            obj.save()
+
+        return JsonResponse({'success': True})
+
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)})
