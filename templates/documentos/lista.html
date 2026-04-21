@@ -57,7 +57,11 @@
             <a href="{{ doc.archivo.url }}" target="_blank" class="btn btn-ghost btn-sm">Ver PDF</a>
             <a href="{% url 'documentos:editar' doc.pk %}" class="btn btn-ghost btn-sm">Editar</a>
             <!-- ========== NUEVO BOTÓN DE HISTORIAL ========== -->
-
+            <a href="{% url 'documentos:historial_documento' doc.pk %}" 
+   class="btn btn-info btn-sm"
+   style="background:#17a2b8; color:white; border:none;">
+   📋 Historial
+</a>
             <!-- =========================================== -->
             <a href="{% url 'documentos:eliminar' doc.pk %}" class="btn btn-danger btn-sm"
                onclick="return confirm('¿Eliminar {{ doc.titulo }}?')">Eliminar</a>
