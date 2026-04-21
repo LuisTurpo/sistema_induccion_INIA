@@ -11,6 +11,8 @@ urlpatterns = [
     path('eliminar/<int:pk>/', views.eliminar_documento, name='eliminar'),
     path('ver/<int:pk>/', views.ver_documento, name='ver'),
     
+    path('historial/<int:pk>/', views.historial_documento, name='historial_documento'),
+    
     # Documentos de usuario
     path('subir-usuario/', views.subir_documento_usuario, name='subir_usuario'),
     path('mis-documentos/', views.mis_documentos, name='mis_documentos'),

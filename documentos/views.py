@@ -232,3 +232,20 @@ def generar_f03_docx(request, trabajador_pk):
     doc.save(response)
     
     return response
+
+@login_required
+def historial_documento(request, pk):
+    if not request.user.es_admin:
+        messages.error(request, 'No tienes permiso.')
+        return redirect('dashboard')
+
+    documento = get_object_or_404(Documento, pk=pk)
+
+    historial = HistorialLecturaExamen.objects.filter(
+        documento=documento
+    ).select_related('usuario').order_by('-fecha_lectura')
+
+    return render(request, 'documentos/historial.html', {
+        'documento': documento,
+        'historial': historial,
+    })
