@@ -24,13 +24,13 @@
           <textarea name="enunciado" class="fc" rows="3" placeholder="Escribe la pregunta aquí..." required></textarea>
         </div>
         
-        <!-- TIPO DE PREGUNTA (NUEVO) -->
+        <!-- TIPO DE PREGUNTA (ACTUALIZADO CON vf_bloque) -->
         <div class="fg">
           <label>Tipo de pregunta <span class="req">*</span></label>
           <select name="tipo" class="fc" onchange="cambiarTipo(this.value)" required>
-            <option value="multiple">Opción múltiple</option>
-            <option value="vf">Verdadero / Falso</option>
-            <option value="abierta">Respuesta abierta</option>
+            <option value="multiple">🔘 Opción múltiple</option>
+            <option value="vf_bloque">📋 VF en bloque (múltiples afirmaciones)</option>
+            <option value="abierta">✍️ Respuesta abierta</option>
           </select>
         </div>
         
@@ -41,11 +41,11 @@
           </div>
           <div class="fg">
             <label>Puntaje</label>
-            <input type="number" name="puntaje" class="fc" value="1" min="0.1" step="0.1">
+            <input type="number" name="puntaje" class="fc" value="2" min="0.1" step="0.1">
           </div>
         </div>
 
-        <!-- 🔘 OPCIONES MÚLTIPLE (por defecto visible) -->
+        <!-- 🔘 OPCIONES MÚLTIPLE -->
         <div id="opciones-multiple">
           <div style="border-top:1px solid var(--borde);padding-top:14px;margin-top:4px">
             <div class="fs-title">Opciones de respuesta</div>
@@ -56,32 +56,45 @@
                      {% if forloop.first %}checked{% endif %}
                      style="accent-color:var(--verde);flex-shrink:0;width:16px;height:16px">
               <input type="text" name="op{{ i }}-texto" class="fc"
-                     placeholder="Opción {{ forloop.counter }}" required style="margin-bottom:0">
+                     placeholder="Opción {{ forloop.counter }}" style="margin-bottom:0">
             </div>
             {% endfor %}
           </div>
         </div>
 
-        <!-- ✅❌ VERDADERO / FALSO (oculto inicialmente) -->
-        <div id="opciones-vf" style="display:none">
+        <!-- 📋 VF EN BLOQUE (NUEVO) -->
+        <div id="opciones-vf-bloque" style="display:none">
           <div style="border-top:1px solid var(--borde);padding-top:14px;margin-top:4px">
-            <div class="fs-title">Verdadero / Falso</div>
-            <div class="fg" style="margin-top:10px">
-              <label>Respuesta correcta <span class="req">*</span></label>
-              <select name="vf_correcta" class="fc">
-                <option value="true">Verdadero</option>
-                <option value="false">Falso</option>
-              </select>
+            <div class="fs-title">VF en bloque - Afirmaciones</div>
+            <div class="text-xs text-muted" style="margin-bottom:12px">
+              Agrega las afirmaciones que el trabajador debe calificar como Verdadero o Falso.
+            </div>
+            <div id="bloque-afirmaciones">
+              <div class="afirmacion-item" style="display:flex;gap:10px;margin-bottom:10px;align-items:center">
+                <input type="text" name="subpregunta_texto[]" class="fc" 
+                       placeholder="Afirmación 1" style="flex:1">
+                <select name="subpregunta_correcta[]" class="fc" style="width:120px">
+                  <option value="false">Falso</option>
+                  <option value="true" selected>Verdadero</option>
+                </select>
+                <button type="button" class="btn btn-danger btn-sm" onclick="eliminarAfirmacion(this)">✗</button>
+              </div>
+            </div>
+            <button type="button" class="btn btn-ghost btn-sm mt-8" onclick="agregarAfirmacion()">
+              + Agregar afirmación
+            </button>
+            <div class="hint-box mt-12">
+              💡 Cada afirmación se calificará individualmente. El puntaje total se distribuye entre todas las afirmaciones.
             </div>
           </div>
         </div>
 
-        <!-- ✍️ ABIERTA (oculto inicialmente) -->
+        <!-- ✍️ ABIERTA -->
         <div id="opciones-abierta" style="display:none">
           <div style="border-top:1px solid var(--borde);padding-top:14px;margin-top:4px">
             <div class="fs-title">Respuesta Abierta</div>
             <div class="fg" style="margin-top:10px">
-              <label>Respuesta esperada (opcional) <span class="req">*</span></label>
+              <label>Respuesta esperada (opcional)</label>
               <input type="text" name="respuesta_abierta" class="fc" 
                      placeholder="Ej: 42, ISO/IEC 17025, El cliente siempre tiene razón...">
               <div class="hint">Dejar en blanco si requiere revisión manual</div>
@@ -96,7 +109,7 @@
     </div>
   </div>
 
-  <!-- Lista de preguntas existentes -->
+  <!-- Lista de preguntas existentes (ACTUALIZADA para mostrar vf_bloque) -->
   <div class="card">
     <div class="card-head">
       <span class="card-title">Preguntas creadas</span>
@@ -110,6 +123,7 @@
             <span class="text-verde" style="text-transform:uppercase;letter-spacing:.06em">
               {% if p.tipo == 'abierta' %}✍️ Abierta
               {% elif p.tipo == 'vf' %}✅❌ V/F
+              {% elif p.tipo == 'vf_bloque' %}📋 VF en bloque
               {% else %}🔘 Múltiple{% endif %}
             </span>
             <span class="text-muted">· Puntaje: {{ p.puntaje }}</span>
@@ -119,29 +133,48 @@
              class="btn btn-danger btn-sm">Eliminar</a>
         </div>
         <p class="text-sm font-600" style="margin-bottom:10px;color:var(--txt)">{{ p.enunciado }}</p>
-        <div style="display:flex;flex-direction:column;gap:5px">
-          {% for op in p.opciones.all %}
-          <div style="display:flex;align-items:center;gap:8px;padding:6px 10px;border-radius:var(--r);
-                      background:{% if op.es_correcta %}var(--vglow){% else %}var(--bg3){% endif %};
-                      border:1px solid {% if op.es_correcta %}rgba(34,197,94,.3){% else %}var(--borde){% endif %}">
-            <span style="font-size:12px;color:{% if op.es_correcta %}var(--verde){% else %}var(--txt3){% endif %}">
-              {% if op.es_correcta %}✓{% else %}○{% endif %}
-            </span>
-            <span class="text-sm" style="color:{% if op.es_correcta %}var(--txt){% else %}var(--txt2){% endif %}">{{ op.texto }}</span>
+        
+        <!-- Mostrar según tipo -->
+        {% if p.tipo == 'vf_bloque' %}
+          <div style="margin-top:8px">
+            <div class="text-xs text-muted mb-8">Afirmaciones del bloque:</div>
+            {% for sub in p.subpreguntas %}
+            <div style="display:flex;align-items:center;gap:8px;padding:6px 10px;margin-bottom:6px;border-radius:var(--r);
+                        background:{% if sub.correcta %}var(--vglow){% else %}var(--bg3){% endif %};
+                        border:1px solid var(--borde)">
+              <span style="font-size:12px">
+                {% if sub.correcta %}✓ Verdadero{% else %}✗ Falso{% endif %}
+              </span>
+              <span class="text-sm">{{ sub.texto }}</span>
+            </div>
+            {% empty %}
+            <div class="text-xs text-muted">Sin afirmaciones configuradas</div>
+            {% endfor %}
           </div>
-          {% empty %}
-          <div class="text-xs text-muted" style="padding:8px">
-            {% if p.tipo == 'abierta' %}
-              ✍️ Respuesta abierta
-              {% if p.respuesta_esperada %}(Esperada: "{{ p.respuesta_esperada }}"){% endif %}
-            {% elif p.tipo == 'vf' %}
-              ✅❌ Verdadero/Falso
-            {% else %}
-              Sin opciones configuradas
-            {% endif %}
+        {% else %}
+          <div style="display:flex;flex-direction:column;gap:5px">
+            {% for op in p.opciones.all %}
+            <div style="display:flex;align-items:center;gap:8px;padding:6px 10px;border-radius:var(--r);
+                        background:{% if op.es_correcta %}var(--vglow){% else %}var(--bg3){% endif %};
+                        border:1px solid {% if op.es_correcta %}rgba(34,197,94,.3){% else %}var(--borde){% endif %}">
+              <span style="font-size:12px;color:{% if op.es_correcta %}var(--verde){% else %}var(--txt3){% endif %}">
+                {% if op.es_correcta %}✓{% else %}○{% endif %}
+              </span>
+              <span class="text-sm" style="color:{% if op.es_correcta %}var(--txt){% else %}var(--txt2){% endif %}">{{ op.texto }}</span>
+            </div>
+            {% empty %}
+            <div class="text-xs text-muted" style="padding:8px">
+              {% if p.tipo == 'abierta' %}
+                ✍️ Respuesta abierta
+              {% elif p.tipo == 'vf' %}
+                ✅❌ Verdadero/Falso
+              {% else %}
+                Sin opciones configuradas
+              {% endif %}
+            </div>
+            {% endfor %}
           </div>
-          {% endfor %}
-        </div>
+        {% endif %}
       </div>
       {% empty %}
       <div style="padding:32px;text-align:center;color:var(--txt3);font-size:13px">
@@ -164,33 +197,58 @@
 
 {% block extra_js %}
 <script>
+let afirmacionCount = 1;
+
+function agregarAfirmacion() {
+  const container = document.getElementById('bloque-afirmaciones');
+  const div = document.createElement('div');
+  div.className = 'afirmacion-item';
+  div.style.display = 'flex';
+  div.style.gap = '10px';
+  div.style.marginBottom = '10px';
+  div.style.alignItems = 'center';
+  div.innerHTML = `
+    <input type="text" name="subpregunta_texto[]" class="fc" 
+           placeholder="Afirmación ${afirmacionCount + 1}" style="flex:1">
+    <select name="subpregunta_correcta[]" class="fc" style="width:120px">
+      <option value="false">Falso</option>
+      <option value="true" selected>Verdadero</option>
+    </select>
+    <button type="button" class="btn btn-danger btn-sm" onclick="eliminarAfirmacion(this)">✗</button>
+  `;
+  container.appendChild(div);
+  afirmacionCount++;
+}
+
+function eliminarAfirmacion(btn) {
+  btn.parentElement.remove();
+}
+
 function cambiarTipo(tipo) {
-  // Ocultar todas
+  // Ocultar todas (ya no incluye opciones-vf)
   document.getElementById('opciones-multiple').style.display = 'none';
-  document.getElementById('opciones-vf').style.display = 'none';
+  document.getElementById('opciones-vf-bloque').style.display = 'none';
   document.getElementById('opciones-abierta').style.display = 'none';
+  
+  // Remover required de todos los campos
+  document.querySelectorAll('input[name^="op"]').forEach(el => el.required = false);
+  document.querySelectorAll('input[name="subpregunta_texto[]"]').forEach(el => el.required = false);
+  document.querySelector('input[name="respuesta_abierta"]').required = false;
   
   // Mostrar según tipo
   if (tipo === 'multiple') {
     document.getElementById('opciones-multiple').style.display = 'block';
-    // Marcar required en opciones múltiple
     document.querySelectorAll('input[name^="op"]').forEach(el => el.required = true);
-    document.querySelector('select[name="vf_correcta"]').required = false;
-    document.querySelector('input[name="respuesta_abierta"]').required = false;
-  } else if (tipo === 'vf') {
-    document.getElementById('opciones-vf').style.display = 'block';
-    document.querySelectorAll('input[name^="op"]').forEach(el => el.required = false);
-    document.querySelector('select[name="vf_correcta"]').required = true;
-    document.querySelector('input[name="respuesta_abierta"]').required = false;
+  } else if (tipo === 'vf_bloque') {
+    document.getElementById('opciones-vf-bloque').style.display = 'block';
+    const primerInput = document.querySelector('input[name="subpregunta_texto[]"]');
+    if (primerInput) primerInput.required = true;
   } else if (tipo === 'abierta') {
     document.getElementById('opciones-abierta').style.display = 'block';
-    document.querySelectorAll('input[name^="op"]').forEach(el => el.required = false);
-    document.querySelector('select[name="vf_correcta"]').required = false;
-    document.querySelector('input[name="respuesta_abierta"]').required = false;
   }
 }
 
-// Inicializar al cargar (múltiple por defecto)
+// Inicializar al cargar
 document.addEventListener('DOMContentLoaded', () => {
   cambiarTipo('multiple');
 });
