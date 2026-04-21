@@ -109,8 +109,8 @@
       <a href="{% url 'supervision:revisar' trabajador.pk %}" class="btn btn-ghost">Supervisar</a>
       <a href="{% url 'autorizaciones:autorizar' trabajador.pk %}" class="btn btn-ghost">Autorizar</a>
       <a href="{% url 'reportes:generar' trabajador.pk %}" class="btn btn-primary">Generar Excel F-52</a>
-<a href="{% url 'documentos:generar_f03' trabajador.pk %}" class="btn btn-primary btn-sm">
-    📄 Generar F-03 Excel
+<a href="{% url 'documentos:generar_f03_docx' trabajador.pk %}" class="btn btn-primary btn-sm">
+    📄 Generar F-03 (Word)
 </a>
       {% if trabajador.autorizacion.excel_generado %}
         <a href="{% url 'reportes:descargar' trabajador.pk %}" class="btn btn-ghost text-verde">Descargar Excel</a>

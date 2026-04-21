@@ -17,5 +17,5 @@ urlpatterns = [
     path('revisar/', views.revisar_documentos_usuario, name='revisar_documentos_usuario'),
     path('cambiar-estado/<int:pk>/<str:estado>/', views.cambiar_estado_documento, name='cambiar_estado'),
     
-    path('f03/<int:trabajador_pk>/', views.generar_f03, name='generar_f03'),
+    path('f03-docx/<int:trabajador_pk>/', views.generar_f03_docx, name='generar_f03_docx'),
 ]

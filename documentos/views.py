@@ -7,9 +7,10 @@ from .models import Documento, DocumentoUsuario, HistorialLecturaExamen, Recepci
 from .forms import DocumentoForm, DocumentoUsuarioForm
 from users.models import User
 from personal.models import Trabajador
-import openpyxl
-from openpyxl.styles import Font, Alignment, Border, Side, PatternFill
-from openpyxl.drawing.image import Image as XLImage
+from docx import Document
+from docx.shared import Cm
+from docx.oxml.ns import qn
+from docx.oxml import OxmlElement
 import os
 from datetime import datetime
 
@@ -115,14 +116,41 @@ def cambiar_estado_documento(request, pk, estado):
     return redirect('documentos:revisar_documentos_usuario')
 
 
-# ========== FORMATO F-03 EN EXCEL ==========
+# ========== FUNCIONES AUXILIARES PARA DOCX ==========
+
+def set_cell_border(cell, border_size=1):
+    """Agrega bordes a una celda de tabla en DOCX"""
+    tc = cell._tc
+    tcPr = tc.get_or_add_tcPr()
+    
+    for edge in ['top', 'left', 'bottom', 'right']:
+        edge_el = OxmlElement(f'w:{edge}')
+        edge_el.set(qn('w:val'), 'single')
+        edge_el.set(qn('w:sz'), str(border_size))
+        edge_el.set(qn('w:space'), '0')
+        edge_el.set(qn('w:color'), '000000')
+        tcPr.append(edge_el)
+
+
+# ========== FORMATO F-03 EN DOCX (PLANTILLA WORD) ==========
 
 @login_required
-def generar_f03(request, trabajador_pk):
-    """Genera el Formato F-03 - Cargo de Recepción de Documentos en Excel"""
+def generar_f03_docx(request, trabajador_pk):
+    """Genera el Formato F-03 exactamente como la plantilla Word"""
     if not request.user.es_admin:
         messages.error(request, 'No tienes permiso.')
         return redirect('dashboard')
+    
+    # Ruta de la plantilla
+    plantilla_path = os.path.join(settings.BASE_DIR, 'templates', 'formatos', 'F-03_plantilla.docx')
+    
+    # Verificar si la plantilla existe
+    if not os.path.exists(plantilla_path):
+        messages.error(request, 'No se encontró la plantilla F-03. Contacta al administrador.')
+        return redirect('personal:detalle', pk=trabajador_pk)
+    
+    # Cargar la plantilla
+    doc = Document(plantilla_path)
     
     trabajador = get_object_or_404(Trabajador, pk=trabajador_pk)
     recepciones = RecepcionDocumento.objects.filter(
@@ -130,104 +158,77 @@ def generar_f03(request, trabajador_pk):
         firmado=True
     ).select_related('documento').order_by('fecha_recepcion')
     
-    # Crear libro de Excel
-    wb = openpyxl.Workbook()
-    ws = wb.active
-    ws.title = "F-03 Recepción Documentos"
+    # Buscar la tabla en el documento (primera tabla)
+    if len(doc.tables) == 0:
+        messages.error(request, 'La plantilla no contiene una tabla válida.')
+        return redirect('personal:detalle', pk=trabajador_pk)
     
-    # Estilos
-    header_font = Font(bold=True, size=11, color="FFFFFF")
-    header_fill = PatternFill(start_color="2d7a2d", end_color="2d7a2d", fill_type="solid")
-    header_alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
-    cell_alignment = Alignment(horizontal="center", vertical="center")
-    thin_border = Border(
-        left=Side(style='thin'),
-        right=Side(style='thin'),
-        top=Side(style='thin'),
-        bottom=Side(style='thin')
-    )
+    tabla = doc.tables[0]
     
-    # Título
-    ws.merge_cells('A1:F1')
-    ws['A1'] = 'CARGO DE RECEPCIÓN DE DOCUMENTOS'
-    ws['A1'].font = Font(bold=True, size=14)
-    ws['A1'].alignment = Alignment(horizontal="center")
+    # Contar filas actuales
+    filas_actuales = len(tabla.rows)
     
-    # Subtítulo
-    ws.merge_cells('A2:F2')
-    ws['A2'] = f'Formato F-03 - Trabajador: {trabajador.usuario.get_full_name()} - DNI: {trabajador.dni}'
-    ws['A2'].font = Font(size=10)
-    ws['A2'].alignment = Alignment(horizontal="center")
+    # Agregar filas según la cantidad de documentos recibidos
+    filas_necesarias = len(recepciones)
     
-    # Encabezados de la tabla
-    headers = ['Nº', 'FECHA DE ENTREGA / RECEPCIÓN', 'CÓDIGO/ NOMBRE DEL DOCUMENTO', 'VERSIÓN', 'RECIBIDO POR:', 'N° COPIAS']
-    for col, header in enumerate(headers, 1):
-        cell = ws.cell(row=4, column=col, value=header)
-        cell.font = header_font
-        cell.fill = header_fill
-        cell.alignment = header_alignment
-        cell.border = thin_border
+    # Si necesitamos más filas, las agregamos
+    for i in range(filas_necesarias - (filas_actuales - 1)):
+        tabla.add_row()
     
-    # Datos
-    row = 5
-    for i, rec in enumerate(recepciones, 1):
-        # Columna Nº
-        ws.cell(row=row, column=1, value=i).border = thin_border
-        ws.cell(row=row, column=1).alignment = cell_alignment
+    # Llenar los datos
+    for idx, rec in enumerate(recepciones):
+        row_idx = idx + 1  # +1 porque la fila 0 es el encabezado
         
-        # Columna FECHA
-        ws.cell(row=row, column=2, value=rec.fecha_recepcion.strftime('%d/%m/%Y')).border = thin_border
-        ws.cell(row=row, column=2).alignment = cell_alignment
-        
-        # Columna DOCUMENTO
-        ws.cell(row=row, column=3, value=rec.documento.titulo).border = thin_border
-        ws.cell(row=row, column=3).alignment = Alignment(horizontal="left", vertical="center")
-        
-        # Columna VERSIÓN
-        version = getattr(rec.documento, 'version', 'v01')
-        ws.cell(row=row, column=4, value=version).border = thin_border
-        ws.cell(row=row, column=4).alignment = cell_alignment
-        
-        # Columna RECIBIDO POR (Firma)
-        if rec.firma_imagen:
-            try:
-                firma_path = os.path.join(settings.MEDIA_ROOT, rec.firma_imagen)
-                if os.path.exists(firma_path):
-                    img = XLImage(firma_path)
-                    img.width = 80
-                    img.height = 30
-                    cell_coord = f'E{row}'
-                    ws.add_image(img, cell_coord)
-                    ws.row_dimensions[row].height = 35
-                    ws.cell(row=row, column=5, value="").border = thin_border
-                else:
-                    ws.cell(row=row, column=5, value="Firmado digitalmente").border = thin_border
-                    ws.cell(row=row, column=5).alignment = cell_alignment
-            except Exception:
-                ws.cell(row=row, column=5, value="Firmado digitalmente").border = thin_border
-                ws.cell(row=row, column=5).alignment = cell_alignment
-        else:
-            ws.cell(row=row, column=5, value="Firmado digitalmente").border = thin_border
-            ws.cell(row=row, column=5).alignment = cell_alignment
-        
-        # Columna COPIAS
-        ws.cell(row=row, column=6, value=1).border = thin_border
-        ws.cell(row=row, column=6).alignment = cell_alignment
-        
-        row += 1
+        if row_idx < len(tabla.rows):
+            row = tabla.rows[row_idx]
+            
+            # Nº
+            row.cells[0].text = str(idx + 1)
+            
+            # FECHA DE ENTREGA / RECEPCIÓN
+            row.cells[1].text = rec.fecha_recepcion.strftime('%d/%m/%Y')
+            
+            # CÓDIGO/ NOMBRE DEL DOCUMENTO
+            nombre_doc = rec.documento.titulo
+            if hasattr(rec.documento, 'codigo') and rec.documento.codigo:
+                nombre_doc = f"{rec.documento.codigo} - {rec.documento.titulo}"
+            row.cells[2].text = nombre_doc
+            
+            # VERSIÓN
+            version = getattr(rec.documento, 'version', 'v01')
+            row.cells[3].text = version
+            
+            # RECIBIDO POR (Firma)
+            if rec.firma_imagen:
+                try:
+                    firma_path = os.path.join(settings.MEDIA_ROOT, rec.firma_imagen)
+                    if os.path.exists(firma_path):
+                        # Limpiar párrafo existente
+                        row.cells[4].paragraphs[0].clear()
+                        # Agregar imagen de firma
+                        run = row.cells[4].paragraphs[0].add_run()
+                        run.add_picture(firma_path, width=Cm(2.5), height=Cm(1))
+                    else:
+                        row.cells[4].text = "Firmado digitalmente"
+                except Exception:
+                    row.cells[4].text = "Firmado digitalmente"
+            else:
+                row.cells[4].text = "Firmado digitalmente"
+            
+            # N° COPIAS (siempre 1)
+            row.cells[5].text = "1"
+            
+            # DEVOLUCIÓN DE DOCUMENTO OBSOLETO (vacío)
+            row.cells[6].text = ""
+            
+            # Aplicar bordes a las celdas
+            for col in range(7):
+                set_cell_border(row.cells[col])
     
-    # Ajustar anchos de columna
-    ws.column_dimensions['A'].width = 5
-    ws.column_dimensions['B'].width = 22
-    ws.column_dimensions['C'].width = 45
-    ws.column_dimensions['D'].width = 12
-    ws.column_dimensions['E'].width = 18
-    ws.column_dimensions['F'].width = 10
-    
-    # Crear respuesta HTTP
-    filename = f"F-03_{trabajador.usuario.last_name}_{trabajador.dni}.xlsx"
-    response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    # Preparar respuesta
+    filename = f"F-03_{trabajador.usuario.last_name}_{trabajador.dni}.docx"
+    response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document')
     response['Content-Disposition'] = f'attachment; filename="{filename}"'
-    wb.save(response)
+    doc.save(response)
     
     return response
