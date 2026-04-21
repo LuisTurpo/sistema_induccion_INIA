@@ -15,7 +15,7 @@ from django.utils import timezone
 from personal.models import Trabajador
 from documentos.models import Documento
 from .models import LecturaDocumento, FirmaEtica
-from documentos.models import HistorialLecturaExamen
+from documentos.models import HistorialLecturaExamen, RecepcionDocumento
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -271,17 +271,22 @@ def leer_documento(request, pk):
 @require_POST
 def marcar_leido(request, pk):
     trabajador = get_object_or_404(Trabajador, usuario=request.user)
-    doc        = get_object_or_404(Documento, pk=pk)
+    doc = get_object_or_404(Documento, pk=pk)
+    
+    # Obtener la firma del POST
+    firma_data = request.POST.get('firma_data', '')
+    
+    # Marcar como leído
     lectura, _ = LecturaDocumento.objects.get_or_create(
         trabajador=trabajador, documento=doc,
         defaults={'porcentaje': 0, 'leido': False}
     )
-    lectura.leido      = True
+    lectura.leido = True
     lectura.porcentaje = 100
     lectura.fecha_leido = timezone.now()
     lectura.save()
     
-    # ========== NUEVO: Sincronizar con HistorialLecturaExamen ==========
+    # Sincronizar con historial de lectura
     historial, created = HistorialLecturaExamen.objects.get_or_create(
         usuario=request.user,
         documento=doc,
@@ -294,7 +299,20 @@ def marcar_leido(request, pk):
     if not created and not historial.fecha_lectura:
         historial.fecha_lectura = timezone.now().date()
         historial.save()
-    # ==================================================================
+
+    # Guardar recepción con firma para F-03
+    if firma_data:
+        firma_img_path, _ = _guardar_imagen_firma(firma_data, trabajador.pk)
+
+        RecepcionDocumento.objects.update_or_create(
+            trabajador=trabajador,
+            documento=doc,
+            defaults={
+                'firma_imagen': firma_img_path,
+                'firmado': True,
+                'ip_address': _get_ip(request),
+            }
+        )
     
     return JsonResponse({'ok': True})
 
@@ -341,15 +359,37 @@ def firmar_etica(request):
         messages.info(request, 'Ya firmaste el Código de Ética D-03.')
         return redirect('induccion:mis_documentos')
 
-    doc_etica  = Documento.objects.filter(tipo='etica', activo=True).first()
-    fecha_hoy  = timezone.localdate()
+    doc_etica = Documento.objects.filter(tipo='etica', activo=True).first()
+    fecha_hoy = timezone.localdate()
+    
+    # Verificar que ha leído TODOS los documentos obligatorios
+    documentos_obligatorios = Documento.objects.filter(activo=True, obligatorio=True).exclude(tipo='etica')
+    total_obligatorios = documentos_obligatorios.count()
+    
+    if total_obligatorios > 0:
+        documentos_leidos = LecturaDocumento.objects.filter(
+            trabajador=trabajador,
+            leido=True,
+            documento__obligatorio=True
+        ).exclude(documento__tipo='etica')
+        
+        leidos_obligatorios = documentos_leidos.count()
+        
+        if leidos_obligatorios < total_obligatorios:
+            faltantes = total_obligatorios - leidos_obligatorios
+            messages.error(
+                request, 
+                f'⚠️ Debes leer todos los documentos obligatorios antes de firmar el Código de Ética. '
+                f'Te faltan {faltantes} documento(s) por leer.'
+            )
+            return redirect('induccion:mis_documentos')
 
     if request.method == 'POST':
-        check1     = request.POST.get('check1')
-        check2     = request.POST.get('check2')
-        check3     = request.POST.get('check3')
+        check1 = request.POST.get('check1')
+        check2 = request.POST.get('check2')
+        check3 = request.POST.get('check3')
         firma_data = request.POST.get('firma_data', '')
-        ciudad     = request.POST.get('ciudad_txt', '').strip()
+        ciudad = request.POST.get('ciudad_txt', '').strip()
 
         errores = []
         if not all([check1, check2, check3]):
@@ -370,7 +410,7 @@ def firmar_etica(request):
         firma_img_path, firma_img_bytes = _guardar_imagen_firma(firma_data, trabajador.pk)
 
         # Generar PDF de declaración jurada
-        ahora      = timezone.localtime()
+        ahora = timezone.localtime()
         pdf_bytes, content_type, ext = _generar_pdf_declaracion(
             trabajador, ciudad, ahora, firma_img_bytes
         )
@@ -379,30 +419,76 @@ def firmar_etica(request):
         carpeta_dec = os.path.join(settings.MEDIA_ROOT, 'declaraciones')
         os.makedirs(carpeta_dec, exist_ok=True)
         nombre_dec = f"declaracion_{trabajador.pk}_{uuid.uuid4().hex[:8]}.{ext}"
-        ruta_dec   = os.path.join(carpeta_dec, nombre_dec)
+        ruta_dec = os.path.join(carpeta_dec, nombre_dec)
         with open(ruta_dec, 'wb') as f:
             f.write(pdf_bytes)
 
-        # Guardar registro en BD
+        # Guardar registro en BD del código de ética
         FirmaEtica.objects.create(
-            trabajador   = trabajador,
-            documento    = doc_etica,
-            ip_address   = _get_ip(request),
-            aceptado     = True,
-            firma_imagen = firma_img_path or '',
+            trabajador=trabajador,
+            documento=doc_etica,
+            ip_address=_get_ip(request),
+            aceptado=True,
+            firma_imagen=firma_img_path or '',
         )
+        
+        # 🔥 REGISTRAR FIRMA PARA TODOS LOS DOCUMENTOS QUE YA LEYÓ
+        registros_firmados = 0
+        documentos_leidos = LecturaDocumento.objects.filter(
+            trabajador=trabajador, 
+            leido=True
+        ).exclude(documento__tipo='etica').select_related('documento')
+        
+        for lectura in documentos_leidos:
+            recepcion, created = RecepcionDocumento.objects.update_or_create(
+                trabajador=trabajador,
+                documento=lectura.documento,
+                defaults={
+                    'firma_imagen': firma_img_path,
+                    'firmado': True,
+                    'ip_address': _get_ip(request),
+                }
+            )
+            registros_firmados += 1
+        
         # Guardar ruta del PDF en sesión para descarga inmediata
         request.session['declaracion_path'] = f"declaraciones/{nombre_dec}"
 
-        messages.success(request, '¡Firma registrada! Tu declaración jurada ha sido generada correctamente.')
+        messages.success(
+            request, 
+            f'¡Firma registrada! Se han firmado automáticamente {registros_firmados} documento(s).'
+        )
         return redirect('induccion:mis_documentos')
 
     return render(request, 'induccion/firmar_etica.html', {
         'trabajador': trabajador,
-        'doc_etica':  doc_etica,
-        'fecha_hoy':  fecha_hoy,
+        'doc_etica': doc_etica,
+        'fecha_hoy': fecha_hoy,
     })
 
+
+def registrar_firmas_documentos(trabajador, firma_img_path, ip_address):
+    """Registra la firma para todos los documentos que el trabajador ya leyó"""
+    documentos_leidos = LecturaDocumento.objects.filter(
+        trabajador=trabajador, 
+        leido=True
+    ).select_related('documento')
+    
+    registros_creados = 0
+    for lectura in documentos_leidos:
+        recepcion, created = RecepcionDocumento.objects.update_or_create(
+            trabajador=trabajador,
+            documento=lectura.documento,
+            defaults={
+                'firma_imagen': firma_img_path,
+                'firmado': True,
+                'ip_address': ip_address,
+            }
+        )
+        if created or recepcion.firmado:
+            registros_creados += 1
+    
+    return registros_creados
 
 @login_required
 def descargar_declaracion(request, trabajador_pk):
