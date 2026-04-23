@@ -1,3 +1,4 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -5,6 +6,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}LABSAF — Sistema F-52{% endblock %}</title>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="icon" type="image/png" href="{% static 'img/favicon.png' %}">
+  <link rel="apple-touch-icon" href="{% static 'img/favicon.png' %}">
   <style>
     :root {
       /* ── Paleta INIA: Verde agrícola + Blanco limpio ── */
@@ -535,11 +538,6 @@
     </div>
   </a>
   
-  <!-- 
-    ✅ TOPBAR SOLO MÓDULOS PRINCIPALES
-    =================================
-    Aquí solo van los módulos de alto nivel
-  -->
   <nav class="topnav">
     {% if user.es_admin %}
       <a href="{% url 'personal:lista' %}"     class="tnav-link {% if '/personal' in request.path %}active{% endif %}">Personal</a>
@@ -570,11 +568,6 @@
 
 <div class="app-layout">
   <aside class="sidebar">
-    <!-- 
-      ✅ SIDEBAR = OPCIONES DENTRO DEL MÓDULO ACTUAL
-      ================================================
-      El sidebar cambia según el módulo activo
-    -->
     
     {% if user.es_admin %}
       <!-- MÓDULO: DASHBOARD -->
@@ -596,7 +589,7 @@
         Personal
       </a>
 
-      <!-- MÓDULO: DOCUMENTOS PDF (con sus sub-opciones) -->
+      <!-- MÓDULO: DOCUMENTOS PDF -->
       <div class="sb-section">Documentos</div>
       <a href="{% url 'documentos:lista' %}" class="sb-item {% if '/documentos' in request.path and 'revisar' not in request.path %}active{% endif %}">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -655,6 +648,35 @@
         <div class="sb-dot"></div>
       </a>
 
+      <!-- ============================================ -->
+      <!-- SECCIÓN AGREGADA: ADMIN COMO TRABAJADOR       -->
+      <!-- ============================================ -->
+      <div class="sb-section" style="margin-top: 20px; border-top: 1px solid var(--borde); padding-top: 12px;">Mi Inducción</div>
+      <a href="{% url 'induccion:mis_documentos' %}" class="sb-item {% if '/induccion' in request.path %}active{% endif %}">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14,2 14,8 20,8"/>
+        </svg>
+        Mis documentos
+      </a>
+      <a href="{% url 'documentos:mis_documentos' %}" class="sb-item">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14,2 14,8 20,8"/>
+        </svg>
+        Mis documentos subidos
+      </a>
+      <a href="{% url 'documentos:subir_usuario' %}" class="sb-item">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M12 5v14M5 12h14"/>
+        </svg>
+        Subir documento
+      </a>
+      <a href="{% url 'evaluaciones:mis_evaluaciones' %}" class="sb-item {% if '/mis' in request.path %}active{% endif %}">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="10"/><polyline points="12,6 12,12 16,14"/>
+        </svg>
+        Mis evaluaciones
+      </a>
+
     {% elif user.es_supervisor %}
       <!-- SIDEBAR PARA SUPERVISOR -->
       <div class="sb-section">Mi trabajo</div>
@@ -693,12 +715,12 @@
         </svg>
         Mis documentos subidos
       </a>
-<a href="{% url 'documentos:subir_usuario' %}" class="sb-item">
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <path d="M12 5v14M5 12h14"/>
-    </svg>
-    Subir documento
-</a>
+      <a href="{% url 'documentos:subir_usuario' %}" class="sb-item">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M12 5v14M5 12h14"/>
+        </svg>
+        Subir documento
+      </a>
       <a href="{% url 'evaluaciones:mis_evaluaciones' %}" class="sb-item {% if '/mis' in request.path %}active{% endif %}">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <circle cx="12" cy="12" r="10"/><polyline points="12,6 12,12 16,14"/>

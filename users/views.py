@@ -8,14 +8,29 @@ from .forms import LoginForm
 def login_view(request):
     if request.user.is_authenticated:
         return redirect('dashboard')
+
     form = LoginForm(request, data=request.POST or None)
+
     if request.method == 'POST':
         if form.is_valid():
             user = form.get_user()
+
+            # 🔴 VALIDAR ESTADO DEL TRABAJADOR
+            try:
+                trabajador = user.trabajador
+                if trabajador.estado == 'inactivo':
+                    messages.error(request, 'Tu cuenta está inactiva. Contacta al administrador.')
+                    return redirect('login')
+            except:
+                pass  # por si es admin sin trabajador
+
+            # ✅ LOGIN NORMAL
             login(request, user)
             return redirect('dashboard')
+
         else:
             messages.error(request, 'Usuario o contraseña incorrectos.')
+
     return render(request, 'users/login.html', {'form': form})
 
 

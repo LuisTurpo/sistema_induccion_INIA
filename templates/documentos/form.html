@@ -1,11 +1,11 @@
 {% extends 'base.html' %}
 {% block title %}{{ titulo }} — LABSAF{% endblock %}
 {% block content %}
-<div style="max-width:620px;margin:0 auto">
+<div style="max-width:720px;margin:0 auto">
   <div class="page-head">
     <div>
       <div class="page-title">{{ titulo }}</div>
-      <div class="page-sub">Los documentos subidos serán visibles para todos los trabajadores activos</div>
+      <div class="page-sub">Documentos de inducción, gestión, técnicos y código de ética</div>
     </div>
     <a href="{% url 'documentos:lista' %}" class="btn btn-ghost">← Volver</a>
   </div>
@@ -18,7 +18,7 @@
         <div class="fg">
           <label>Título del documento <span class="req">*</span></label>
           <input type="text" name="titulo" class="fc {% if form.titulo.errors %}err{% endif %}"
-                 placeholder="Ej: Código de Ética D-03"
+                 placeholder="Ej: Código de Ética D-03, Manual de Procedimientos, etc."
                  value="{{ form.titulo.value|default:'' }}" required>
           {% if form.titulo.errors %}<div class="ferr">{{ form.titulo.errors.0 }}</div>{% endif %}
         </div>
@@ -36,39 +36,68 @@
             {% if form.tipo.errors %}<div class="ferr">{{ form.tipo.errors.0 }}</div>{% endif %}
           </div>
           <div class="fg">
-            <label>Archivo PDF {% if not form.instance.pk %}<span class="req">*</span>{% endif %}</label>
-            <input type="file" name="archivo" class="fc" accept=".pdf"
-                   {% if not form.instance.pk %}required{% endif %}>
-            {% if form.instance.pk and form.instance.archivo %}
-              <div class="hint">Archivo actual: <a href="{{ form.instance.archivo.url }}" target="_blank" style="color:var(--verde)">ver PDF</a>. Deja vacío para mantener.</div>
-            {% endif %}
-            {% if form.archivo.errors %}<div class="ferr">{{ form.archivo.errors.0 }}</div>{% endif %}
+            <label>Versión</label>
+            <input type="text" name="version" class="fc" 
+                   placeholder="Ej: v01, v1.0, 2024"
+                   value="{{ form.version.value|default:'' }}">
+            <div class="hint">Opcional. Ejemplo: v01, v1.0, 2024</div>
           </div>
+        </div>
+
+        <div class="fg">
+          <label>Archivo <span class="req">*</span></label>
+          <input type="file" name="archivo" class="fc" 
+                 accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.jpg,.jpeg,.png"
+                 {% if not form.instance.pk %}required{% endif %}>
+          <div class="hint">
+            Formatos permitidos: PDF, Word (doc, docx), Excel (xls, xlsx), PowerPoint (ppt, pptx), 
+            TXT, imágenes (jpg, jpeg, png). Tamaño máximo: 20MB
+          </div>
+          {% if form.instance.pk and form.instance.archivo %}
+            <div class="hint mt-8">
+              Archivo actual: 
+              <a href="{{ form.instance.archivo.url }}" target="_blank" style="color:var(--verde)">
+                {% if form.instance.archivo.name|lower|slice:"-4:" == '.pdf' %}
+                  📄 Ver PDF
+                {% elif form.instance.archivo.name|lower|slice:"-5:" == '.docx' %}
+                  📝 Ver Word
+                {% elif form.instance.archivo.name|lower|slice:"-4:" == '.xls' or form.instance.archivo.name|lower|slice:"-5:" == '.xlsx' %}
+                  📊 Ver Excel
+                {% else %}
+                  📁 Ver archivo
+                {% endif %}
+              </a>
+              . Deja vacío para mantener el actual.
+            </div>
+          {% endif %}
+          {% if form.archivo.errors %}<div class="ferr">{{ form.archivo.errors.0 }}</div>{% endif %}
         </div>
 
         <div class="fg">
           <label>Descripción</label>
           <textarea name="descripcion" class="fc" rows="3"
-                    placeholder="Descripción breve del contenido...">{{ form.descripcion.value|default:'' }}</textarea>
+                    placeholder="Descripción breve del contenido del documento...">{{ form.descripcion.value|default:'' }}</textarea>
         </div>
 
-        <div class="flex gap-20" style="margin-bottom:20px">
+        <div class="flex gap-20" style="margin-bottom:20px; flex-wrap: wrap;">
           <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;color:var(--txt2)">
             <input type="checkbox" name="obligatorio"
                    {% if form.obligatorio.value %}checked{% endif %}
                    style="accent-color:var(--verde);width:16px;height:16px">
-            Documento obligatorio
+            📌 Documento obligatorio
           </label>
           <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;color:var(--txt2)">
             <input type="checkbox" name="activo"
                    {% if form.activo.value != False %}checked{% endif %}
                    style="accent-color:var(--verde);width:16px;height:16px">
-            Activo (visible para trabajadores)
+            ✅ Activo (visible para trabajadores)
           </label>
         </div>
 
         <div class="flex gap-10">
-          <button type="submit" class="btn btn-primary">Guardar documento</button>
+          <button type="submit" class="btn btn-primary">
+            <i class="fas fa-save"></i> Guardar documento
+          </button>
           <a href="{% url 'documentos:lista' %}" class="btn btn-ghost">Cancelar</a>
         </div>
       </form>

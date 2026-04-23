@@ -152,9 +152,11 @@
         <a href="{% url 'induccion:descargar_declaracion' trabajador.pk %}" class="btn btn-primary btn-sm">
           📄 Descargar declaración jurada
         </a>
-        <a href="{% url 'induccion:leer' doc_etica.pk %}" class="btn btn-ghost btn-sm">
-          🔄 Releer código de ética
-        </a>
+        {% if doc_etica and doc_etica.pk %}
+  <a href="{% url 'induccion:leer' doc_etica.pk %}" class="btn btn-ghost btn-sm">
+    🔄 Releer código de ética
+  </a>
+{% endif %}
       </div>
     {% else %}
       {% if pendientes|length == 0 %}

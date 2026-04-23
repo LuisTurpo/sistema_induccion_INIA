@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load static %}
 {% block title %}Iniciar sesión — LABSAF · INIA{% endblock %}
 {% block extra_css %}
 <style>
@@ -10,14 +11,20 @@ body {
 .login-page { width: 100%; max-width: 400px; padding: 20px; }
 .login-logo { text-align: center; margin-bottom: 28px; }
 .login-mark {
-  width: 64px; height: 64px;
+  width: 80px; height: 80px;
   background: #fff;
-  border-radius: 16px;
+  border-radius: 20px;
   display: flex; align-items: center; justify-content: center;
   margin: 0 auto 14px;
   box-shadow: 0 4px 20px rgba(0,0,0,.2);
+  overflow: hidden;
+  padding: 12px;
 }
-.login-mark svg { width: 32px; height: 32px; }
+.login-mark img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
 .login-title { font-size: 24px; font-weight: 700; letter-spacing: -.02em; color: #fff; margin-bottom: 4px; }
 .login-sub { font-size: 12px; color: rgba(255,255,255,.7); line-height: 1.5; }
 .login-card {
@@ -61,12 +68,10 @@ body {
       🌱 Instituto Nacional de Innovación Agraria
     </div>
     <div class="login-mark">
-      <svg viewBox="0 0 24 24" fill="none" stroke="var(--verde)" stroke-width="2.5">
-        <path d="M9 3H5a2 2 0 00-2 2v4m6-6h10a2 2 0 012 2v4M9 3v18m0 0h10a2 2 0 002-2V9M9 21H5a2 2 0 01-2-2V9m0 0h18"/>
-      </svg>
+      <img src="{% static 'img/logoinia.png' %}" alt="INIA" onerror="this.src='https://via.placeholder.com/56?text=INIA'">
     </div>
     <div class="login-title">LABSAF</div>
-    <div class="login-sub">Sistema de Inducción y Capacitación<br>F-52 / PRO-04 v10</div>
+    <div class="login-sub">Laboratorio de Suelos, Aguas y Foliares<br>Sistema de Inducción F-52 / PRO-04 v10</div>
   </div>
 
   <div class="login-card">
@@ -89,7 +94,7 @@ body {
       </div>
       <button type="submit" class="btn-login">Ingresar al sistema</button>
     </form>
-    <div class="login-divider">Laboratorio de Suelos, Aguas y Foliares</div>
+    <div class="login-divider">Calidad · Excelencia · Compromiso</div>
     <div style="font-size:11px;color:var(--txt3);text-align:center">
       Estación Experimental Agraria — INIA
     </div>
